@@ -1,5 +1,6 @@
 import json
-
+import sys
+import getopt
 import tornado.web
 import tornado.websocket
 import tornado.ioloop
@@ -12,8 +13,6 @@ import threading
 import time
 
 import asyncio
-
-define("port", default=8080, help="run on the given port", type=int)
 
 
 class server_thread(threading.Thread):
@@ -41,8 +40,9 @@ class Node:
         self.port = port
         self.peer_ports = peer_ports
 
-    async def open_server(self):
+    def open_server(self):
         print("server is ready")
+        print(self.port)
         server = Application()
         server.listen(self.port)
         # server.ioloop.start()
@@ -144,25 +144,36 @@ class Client():
 
 
 if __name__ == "__main__":
-    tornado.options.parse_command_line()
+    import argparse
+
+    parser = argparse.ArgumentParser(description="progrom description")
+
+
+    parser.add_argument('--port')
+
+
+    args = parser.parse_args()
+    port = args.port
+
 
     # node = Node(8080, [8090, 9000])
     # node.open_server()
     #
-    # n = Node(9900,[9999,9991])
-    # n.open_server()
+    n = Node(port,[9999,9991])
+    n.open_server()
+
 
     #
-    loop = asyncio.get_event_loop()
-    loop.run_until_complete(asyncio.gather(
-        # factorial("A", 2),
-        # factorial("B", 3),
-        # factorial("C", 4),
-        ser(8080),
-        ser(9090),
-        ser(9999),
-    ))
-    loop.close()
+    # loop = asyncio.get_event_loop()
+    # loop.run_until_complete(asyncio.gather(
+    #     # factorial("A", 2),
+    #     # factorial("B", 3),
+    #     # factorial("C", 4),
+    #     ser(8080),
+    #     ser(9090),
+    #     ser(9999),
+    # ))
+    # loop.close()
 
     # t = threading.Thread(target=node.open_server())  # 创建线程
     # t.setDaemon(True)  # 设置为后台线程，这里默认是False，设置为True之后则主线程不用等待子线程
