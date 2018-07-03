@@ -45,10 +45,8 @@ class Node:
         print(self.port)
         server = Application()
         server.listen(self.port)
-        # server.ioloop.start()
-        inst = IOLoop.instance()
-        inst.start()
-
+        server.ioloop.start()
+       
     def read_client(self, other_port):
         to_url = "ws://localhost:" + str(other_port)
         client = Client(5)
