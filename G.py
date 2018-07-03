@@ -1,3 +1,6 @@
+#
+# usage: python G.py|dot -Tpng > G.png
+
 import random
 
 nodes = list(range(1,100))
