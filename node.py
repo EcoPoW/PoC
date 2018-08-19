@@ -1,102 +1,94 @@
+import time
+import socket
+import subprocess
+import argparse
+
 import tornado.web
 import tornado.websocket
 import tornado.ioloop
 import tornado.options
-from tornado.httpserver import HTTPServer
-import time
-import socket
-import subprocess
+import tornado.httpserver
+import tornado.gen
 
-from tornado import gen
-from tornado.websocket import websocket_connect
-from multiprocessing import Process,Pool,Queue,Manager
-import pickle
 
-@gen.coroutine
-def read(to_url):
-    print("client trying to read msg")
-    webSocket = yield websocket_connect(to_url)
-    msg = yield webSocket.read_message()
+# @tornado.gen.coroutine
+# def read(to_url):
+#     print("client trying to read msg")
+#     webSocket = yield tornado.websocket.websocket_connect(to_url)
+#     msg = yield webSocket.read_message()
             
-@gen.coroutine
-def write(to_url,msg,msgId):
-    def callback():
-        print("Hello World")
-        self.finish()
+# @tornado.gen.coroutine
+# def write(to_url, msg, msg_id):
+#     def callback():
+#         print("Hello World")
+#         self.finish()
     
-    print("client trying to write msg")
-    print(to_url)
-    print(msg)
-    webSocket = yield websocket_connect(to_url)
-    webSocket.write_message(msg+";;;"+str(msgId),callback)
+#     print("client trying to write msg")
+#     print(to_url)
+#     print(msg)
+#     webSocket = yield tornado.websocket.websocket_connect(to_url)
+#     webSocket.write_message(msg+";;;"+str(msgId),callback)
 
 
-def open_server(port):
-    server = application()
-    server.listen(port)  # 比较一下listen和bind的区别
-    tornado.ioloop.IOLoop.instance().start()
+served_msg = []
 
-
-served_msg=[]
-
-class application(tornado.web.Application):
+class Application(tornado.web.Application):
     def __init__(self):
-        handlers = [(r"/", main_handler),
+        handlers = [(r"/node", NodeHandler),
                     ]
-        settings = dict(debug=True)
-        print("port " + str(port1) + " server starts")
+        settings = {"debug":True}
 
         tornado.web.Application.__init__(self, handlers, **settings)
 
 
-class main_handler(tornado.websocket.WebSocketHandler):
-    def data_received(self, chunk):
-        print("data received")
-
+class NodeHandler(tornado.websocket.WebSocketHandler):
     clients = set()
 
+    # def data_received(self, chunk):
+    #     print("data received")
 
     def check_origin(self, origin):
         return True
 
-
     def open(self):
-        print(" A client connected."+port1)
-        if self in main_handler.clients:
+        # print(" A client connected."+port)
+        if self in NodeHandler.clients:
             print("dsafadf")
-        main_handler.clients.add(self)
+        else:
+            NodeHandler.clients.add(self)
 
-        print(len(main_handler.clients))
+        print(len(NodeHandler.clients))
 
     def on_close(self):
         print("A client disconnected")
-        main_handler.clients.remove(self)
+        if self in NodeHandler.clients:
+            NodeHandler.clients.remove(self)
 
     def send_to_client(self, msg):
         print("send message: {}".format(msg))
         self.write_message(msg)
 
-    @gen.coroutine
-    def on_message(self, message):
-        print("On Message"+str(message))
+    @tornado.gen.coroutine
+    def on_message(self, msg):
+        print("On Message"+str(msg))
         
-        if str(message).split(";;;")[1] in served_msg:
+        if str(msg).split(";;;")[1] in served_msg:
             print("message served")
             return
-        print(str(message).split(";;;")[0]+":server")
-        print("client number "+str(len(main_handler.clients)))
+        # print(str(msg).split(";;;")[0]+":server")
+        print("client number "+str(len(NodeHandler.clients)))
 
         # for c in main_handler.clients:
         #     if c!=self:
         #         c.write_message(message)
-        with open(port1, 'rb') as f:
-            tree=pickle.load(f)
-        if len(tree[port1]) == 0:
-            return
-        for url in tree[port1]:
-            to_url = "ws://localhost:" + url
-            webSocket = yield websocket_connect(to_url)
-            webSocket.write_message(str(message).split(";;;")[0]+";;;"+str(message).split(";;;")[1])
+        # with open(port, 'rb') as f:
+        #     tree=pickle.load(f)
+        # if len(tree[port]) == 0:
+        #     return
+        # for url in tree[port]:
+        #     to_url = "ws://localhost:" + url
+        #     webSocket = yield tornado.websocket.websocket_connect(to_url)
+        #     webSocket.write_message(str(msg).split(";;;")[0]+";;;"+str(msg).split(";;;")[1])
 
         # if len(peer) == 0:
         #     return
@@ -104,75 +96,69 @@ class main_handler(tornado.websocket.WebSocketHandler):
         #     if u == str(port):
         #         return
         #     to_url = "ws://localhost:" + u
-        #     webSocket = yield websocket_connect(to_url)
+        #     webSocket = yield tornado.websocket.websocket_connect(to_url)
         #     webSocket.write_message(message.split(";;;")[0]+";;;"+message.split(";;;")[1])
 
-        served_msg.append(str(message).split(";;;")[1])
+        served_msg.append(str(msg).split(";;;")[1])
 
+control_node = None
+def on_connect(future):
+    global control_node
+    print("on_connect")
 
+    try:
+        control_node = future.result()
+        # for future, message in self.connect_waiting:
+        #     self.waiting_inqueue(future)
+        #     self.conn.write_message(message)
+        # self.connect_waiting = []
+    except:
+        print("reconnect ...")
+        tornado.ioloop.IOLoop.instance().call_later(1.0, connect)
 
+def on_message(msg):
+    print("on_message", msg)
 
-import argparse
+def connect():
+    print("connect", control_port)
+    tornado.websocket.websocket_connect("ws://localhost:%s/control" % control_port, callback=on_connect, on_message_callback=on_message)
+    # if control_node:
+    print(control_node)
+    # tornado.ioloop.IOLoop.instance().call_later(1.0, connect)
 
-parser = argparse.ArgumentParser(description="program description")
+def main():
+    global port, control_port
 
-parser.add_argument('--port1')
-parser.add_argument('--port2')
-parser.add_argument('--operation')
-parser.add_argument('--message')
+    parser = argparse.ArgumentParser(description="program description")
+    parser.add_argument('--port')
+    parser.add_argument('--control_port')
 
-args = parser.parse_args()
+    args = parser.parse_args()
+    port = args.port
+    control_port = args.control_port
 
-port1 = args.port1
-port2 = args.port2
-operation=args.operation
-message = args.message
-
-
-pool=Pool(8)
-    
-
-if operation == "0":
-    # pool.apply_async(open_server,(port1,))
-    open_server(port1)
-
-
-if operation == "1":
-    to_url = "ws://localhost:" + args.port2
-    print(to_url)
-    # pool.apply_async(write,(to_url,message,1,))
-    write(to_url,message,1)
+    server = Application()
+    server.listen(port)
+    tornado.ioloop.IOLoop.instance().add_callback(connect)
     tornado.ioloop.IOLoop.instance().start()
 
-if operation == "2":
-    with open(port1, 'rb') as f:
-        tree=pickle.load(f)
-    if len(tree[port1]) != 0:
-        for url in tree[port1]:
-            to_url = "ws://localhost:" + url
-            write(to_url,message,1)
-        tornado.ioloop.IOLoop.instance().start()
-        # tree=json.loads('{"3001": ",3002,3003", "3002": "3001,3004,3005", "3003": "3001,3006,3007", "3004": "3002,,", "3005": "3002,,", "3006": "3003,,", "3007": "3003,,"}')
 
-        # tree=json.loads(f.read().replace('\n', ''))
-        
-        # print(tree)
+    # if operation == "1":
+    #     to_url = "ws://localhost:" + args.port2
+    #     print(to_url)
+    #     # pool.apply_async(write,(to_url,message,1,))
+    #     write(to_url,message,1)
+    #     tornado.ioloop.IOLoop.instance().start()
 
-
-
-
-    
+    # if operation == "2":
+    #     with open(port, 'rb') as f:
+    #         tree=pickle.load(f)
+    #     if len(tree[port]) != 0:
+    #         for url in tree[port]:
+    #             to_url = "ws://localhost:" + url
+    #             write(to_url,message,1)
+    #         tornado.ioloop.IOLoop.instance().start()
 
 
-
-# read("ws://localhost:8080")
-
-
-
-
-
-
-
-
-
-
+if __name__ == '__main__':
+    main()
