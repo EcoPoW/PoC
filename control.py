@@ -13,14 +13,23 @@ import tornado.options
 import tornado.httpserver
 import tornado.gen
 
+incremental_port = 8002
+
 class Application(tornado.web.Application):
     def __init__(self):
         handlers = [(r"/control", ControlHandler),
+					(r"/new", NewHandler),
                     ]
         settings = {"debug":True}
 
         tornado.web.Application.__init__(self, handlers, **settings)
 
+class NewHandler(tornado.web.RequestHandler):
+	def get(self):
+		global incremental_port
+		subprocess.Popen(["python", "node.py", "--port=%s"%incremental_port, "--control_port=8000"])
+		self.finish("new node "+str(incremental_port))
+		incremental_port += 1
 
 class ControlHandler(tornado.websocket.WebSocketHandler):
     clients = set()
@@ -32,7 +41,7 @@ class ControlHandler(tornado.websocket.WebSocketHandler):
         return True
 
     def open(self):
-        print("A client connected.")
+        print("A client connected")
         if self not in ControlHandler.clients:
             ControlHandler.clients.add(self)
 
@@ -49,40 +58,13 @@ class ControlHandler(tornado.websocket.WebSocketHandler):
 
     @tornado.gen.coroutine
     def on_message(self, msg):
-        print("On Message"+str(msg))
-        
-        if str(msg).split(";;;")[1] in served_msg:
-            print("message served")
-            return
-        # print(str(msg).split(";;;")[0]+":server")
-        print("client number "+str(len(ControlHandler.clients)))
-
-        # for c in main_handler.clients:
-        #     if c!=self:
-        #         c.write_message(message)
-        # with open(port, 'rb') as f:
-        #     tree=pickle.load(f)
-        # if len(tree[port]) == 0:
-        #     return
-        # for url in tree[port]:
-        #     to_url = "ws://localhost:" + url
-        #     webSocket = yield tornado.websocket.websocket_connect(to_url)
-        #     webSocket.write_message(str(msg).split(";;;")[0]+";;;"+str(msg).split(";;;")[1])
-
-        # if len(peer) == 0:
-        #     return
-        # for u in peer.split(","):
-        #     if u == str(port):
-        #         return
-        #     to_url = "ws://localhost:" + u
-        #     webSocket = yield tornado.websocket.websocket_connect(to_url)
-        #     webSocket.write_message(message.split(";;;")[0]+";;;"+message.split(";;;")[1])
+        print("on_message", str(msg))
 
 
 def main():
     global port, control_port
 
-    parser = argparse.ArgumentParser(description="program description")
+    parser = argparse.ArgumentParser(description="control description")
     # parser.add_argument('--port')
     parser.add_argument('--control_port')
 
