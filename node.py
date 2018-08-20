@@ -2,6 +2,7 @@ import time
 import socket
 import subprocess
 import argparse
+import json
 
 import tornado.web
 import tornado.websocket
@@ -57,15 +58,13 @@ def on_connect(future):
 
     try:
         control_node = future.result()
-        # for future, message in self.connect_waiting:
-        #     self.waiting_inqueue(future)
-        #     self.conn.write_message(message)
-        # self.connect_waiting = []
+        control_node.write_message(json.dumps(["ADDRESS", "", port]))
     except:
         print("reconnect ...")
         tornado.ioloop.IOLoop.instance().call_later(1.0, connect)
 
 def on_message(msg):
+    global control_node
     if msg is None:
         tornado.ioloop.IOLoop.instance().call_later(1.0, connect)
         return

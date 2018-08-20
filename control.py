@@ -3,8 +3,6 @@ import time
 import socket
 import json
 import argparse
-# import pickle
-# from multiprocessing import Process,Pool,Queue,Manager
 
 import tornado.web
 import tornado.websocket
@@ -13,23 +11,24 @@ import tornado.options
 import tornado.httpserver
 import tornado.gen
 
-incremental_port = 8002
+incremental_port = 8001
+known_addresses = set()
 
 class Application(tornado.web.Application):
     def __init__(self):
         handlers = [(r"/control", ControlHandler),
-					(r"/new", NewHandler),
+                    (r"/new", NewHandler),
                     ]
         settings = {"debug":True}
 
         tornado.web.Application.__init__(self, handlers, **settings)
 
 class NewHandler(tornado.web.RequestHandler):
-	def get(self):
-		global incremental_port
-		subprocess.Popen(["python", "node.py", "--port=%s"%incremental_port, "--control_port=8000"])
-		self.finish("new node "+str(incremental_port))
-		incremental_port += 1
+    def get(self):
+        global incremental_port
+        subprocess.Popen(["python", "node.py", "--port=%s"%incremental_port, "--control_port=8000"])
+        self.finish("new node "+str(incremental_port))
+        incremental_port += 1
 
 class ControlHandler(tornado.websocket.WebSocketHandler):
     clients = set()
@@ -58,18 +57,22 @@ class ControlHandler(tornado.websocket.WebSocketHandler):
 
     @tornado.gen.coroutine
     def on_message(self, msg):
-        print("on_message", str(msg))
+        seq = json.loads(msg)
+        print("on_message", seq)
+        if seq[0] == "ADDRESS":
+            addr = tuple(seq[1:3])
+            # print(addr)
+            known_addresses.add(addr)
+            # print(known_addresses)
 
 
 def main():
     global port, control_port
 
     parser = argparse.ArgumentParser(description="control description")
-    # parser.add_argument('--port')
     parser.add_argument('--control_port')
 
     args = parser.parse_args()
-    # port = args.port
     control_port = args.control_port
 
     server = Application()
