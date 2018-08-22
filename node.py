@@ -31,7 +31,7 @@ class NodeHandler(tornado.websocket.WebSocketHandler):
         return True
 
     def open(self):
-        print(" A client connected", port)
+        print("a client connected", port)
         if self not in NodeHandler.clients:
             NodeHandler.clients.add(self)
 
@@ -58,7 +58,7 @@ def on_connect(future):
 
     try:
         control_node = future.result()
-        control_node.write_message(json.dumps(["ADDRESS", "", port]))
+        control_node.write_message(json.dumps(["ADDRESS", "localhost", port]))
     except:
         print("reconnect ...")
         tornado.ioloop.IOLoop.instance().call_later(1.0, connect)
@@ -69,7 +69,15 @@ def on_message(msg):
         tornado.ioloop.IOLoop.instance().call_later(1.0, connect)
         return
 
-    print("on_message", msg)
+    seq = json.loads(msg)
+    print("on_message", seq)
+    if seq[0] == "BOOTSTRAP_ADDRESS":
+        print(seq[1])
+        if not seq[1]:
+            # root node
+            pass
+        else:
+            pass
 
 def connect():
     print("connect", control_port)

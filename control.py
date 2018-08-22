@@ -3,6 +3,7 @@ import time
 import socket
 import json
 import argparse
+import random
 
 import tornado.web
 import tornado.websocket
@@ -40,14 +41,14 @@ class ControlHandler(tornado.websocket.WebSocketHandler):
         return True
 
     def open(self):
-        print("A client connected")
+        print("a client connected")
         if self not in ControlHandler.clients:
             ControlHandler.clients.add(self)
 
         print("Clients", len(ControlHandler.clients))
 
     def on_close(self):
-        print("A client disconnected")
+        print("a client disconnected")
         if self in ControlHandler.clients:
             ControlHandler.clients.remove(self)
 
@@ -62,8 +63,13 @@ class ControlHandler(tornado.websocket.WebSocketHandler):
         if seq[0] == "ADDRESS":
             addr = tuple(seq[1:3])
             # print(addr)
+            known_addresses_list = list(known_addresses)
+            random.shuffle(known_addresses_list)
+            self.write_message(json.dumps(["BOOTSTRAP_ADDRESS", known_addresses_list[:3]]))
             known_addresses.add(addr)
             # print(known_addresses)
+        elif seq[0]:
+            pass
 
 
 def main():
