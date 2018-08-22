@@ -13,7 +13,6 @@ import tornado.httpserver
 import tornado.gen
 
 incremental_port = 8001
-known_addresses = set()
 
 class Application(tornado.web.Application):
     def __init__(self):
@@ -32,7 +31,7 @@ class NewHandler(tornado.web.RequestHandler):
         incremental_port += 1
 
 class ControlHandler(tornado.websocket.WebSocketHandler):
-    clients = set()
+    known_addresses = dict()
 
     # def data_received(self, chunk):
     #     print("data received")
@@ -42,15 +41,13 @@ class ControlHandler(tornado.websocket.WebSocketHandler):
 
     def open(self):
         print("a client connected")
-        if self not in ControlHandler.clients:
-            ControlHandler.clients.add(self)
-
-        print("Clients", len(ControlHandler.clients))
+        print("Clients", len(ControlHandler.known_addresses))
+        self.addr = None
 
     def on_close(self):
         print("a client disconnected")
-        if self in ControlHandler.clients:
-            ControlHandler.clients.remove(self)
+        if self.addr in ControlHandler.known_addresses:
+            del ControlHandler.known_addresses[self.addr]
 
     def send_to_client(self, msg):
         print("send message: {}".format(msg))
@@ -61,12 +58,12 @@ class ControlHandler(tornado.websocket.WebSocketHandler):
         seq = json.loads(msg)
         print("on_message", seq)
         if seq[0] == "ADDRESS":
-            addr = tuple(seq[1:3])
-            # print(addr)
-            known_addresses_list = list(known_addresses)
+            self.addr = tuple(seq[1:3])
+            # print(self.addr)
+            known_addresses_list = list(ControlHandler.known_addresses)
             random.shuffle(known_addresses_list)
             self.write_message(json.dumps(["BOOTSTRAP_ADDRESS", known_addresses_list[:3]]))
-            known_addresses.add(addr)
+            ControlHandler.known_addresses[self.addr] = self
             # print(known_addresses)
         elif seq[0]:
             pass
