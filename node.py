@@ -12,6 +12,8 @@ import tornado.httpserver
 import tornado.gen
 
 
+available_branches = set()
+
 class Application(tornado.web.Application):
     def __init__(self):
         handlers = [(r"/node", NodeHandler),
@@ -22,7 +24,8 @@ class Application(tornado.web.Application):
 
 
 class NodeHandler(tornado.websocket.WebSocketHandler):
-    clients = set()
+    # clients = set()
+    children_nodes = dict()
 
     # def data_received(self, chunk):
     #     print("data received")
@@ -32,15 +35,15 @@ class NodeHandler(tornado.websocket.WebSocketHandler):
 
     def open(self):
         print("a client connected", port)
-        if self not in NodeHandler.clients:
-            NodeHandler.clients.add(self)
+        if self not in NodeHandler.children_nodes:
+            NodeHandler.children_nodes.add(self)
 
-        print(len(NodeHandler.clients))
+        print(len(NodeHandler.children_nodes))
 
     def on_close(self):
         print("a client disconnected")
-        if self in NodeHandler.clients:
-            NodeHandler.clients.remove(self)
+        if self in NodeHandler.children_nodes:
+            NodeHandler.children_nodes.remove(self)
 
     def send_to_client(self, msg):
         print("send message: {}".format(msg))
@@ -51,10 +54,56 @@ class NodeHandler(tornado.websocket.WebSocketHandler):
         print("on message", msg)
 
 
+class Connector(object):
+    """Websocket Client"""
+    parent_nodes = set()
+
+    def __init__(self, ws_uri):
+        self.ws_uri = ws_uri
+        self.conn = None
+        self.connect()
+
+    def connect(self):
+        tornado.websocket.websocket_connect(self.ws_uri,
+                                callback = self.on_connect,
+                                on_message_callback = self.on_message,
+                                connect_timeout = 1200.0)
+
+    def on_connect(self, future):
+        global parent_nodes
+        print("on parent connect")
+
+        try:
+            self.conn = future.result()
+            if self not in parent_nodes:
+                parent_nodes.add(self)
+            # parent_node.write_message(json.dumps(["ADDRESS", "localhost", port]))
+        except:
+            print("reconnect ...")
+            tornado.ioloop.IOLoop.instance().call_later(1.0, self.connect)
+
+
+    def on_message(self, msg):
+        # global control_node
+        if msg is None:
+            tornado.ioloop.IOLoop.instance().call_later(1.0, self.connect)
+            return
+
+        seq = json.loads(msg)
+        print("on parent message", seq)
+        if seq[0] == "BOOTSTRAP_ADDRESS":
+            print(seq[1])
+            if not seq[1]:
+                # root node
+                pass
+            else:
+                pass
+
+
 control_node = None
 def on_connect(future):
     global control_node
-    print("on_connect")
+    print("on connect")
 
     try:
         control_node = future.result()
@@ -65,17 +114,20 @@ def on_connect(future):
 
 def on_message(msg):
     global control_node
+    global available_branches
     if msg is None:
         tornado.ioloop.IOLoop.instance().call_later(1.0, connect)
         return
 
     seq = json.loads(msg)
-    print("on_message", seq)
+    print("on message", seq)
     if seq[0] == "BOOTSTRAP_ADDRESS":
-        print(seq[1])
+        # print("BOOTSTRAP_ADDRESS", seq)
         if not seq[1]:
             # root node
-            pass
+            available_branches.add(tuple([port, "R"]))
+            available_branches.add(tuple([port, "L"]))
+            print("available_branches", available_branches)
         else:
             pass
 
