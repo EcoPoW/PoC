@@ -41,7 +41,7 @@ class ControlHandler(tornado.websocket.WebSocketHandler):
 
     def open(self):
         print("a client connected")
-        print("Clients", len(ControlHandler.known_addresses))
+        # print("Clients", len(ControlHandler.known_addresses))
         self.addr = None
 
     def on_close(self):
@@ -50,21 +50,21 @@ class ControlHandler(tornado.websocket.WebSocketHandler):
             del ControlHandler.known_addresses[self.addr]
 
     def send_to_client(self, msg):
-        print("send message: {}".format(msg))
+        print("send message: %s" % msg)
         self.write_message(msg)
 
     @tornado.gen.coroutine
     def on_message(self, msg):
         seq = json.loads(msg)
-        print("on_message", seq)
-        if seq[0] == "ADDRESS":
+        print("control on message", seq)
+        if seq[0] == u"ADDRESS":
             self.addr = tuple(seq[1:3])
             # print(self.addr)
             known_addresses_list = list(ControlHandler.known_addresses)
             random.shuffle(known_addresses_list)
             self.write_message(json.dumps(["BOOTSTRAP_ADDRESS", known_addresses_list[:3]]))
             ControlHandler.known_addresses[self.addr] = self
-            # print(known_addresses)
+            print(ControlHandler.known_addresses)
         elif seq[0]:
             pass
 
