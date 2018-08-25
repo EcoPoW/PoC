@@ -14,6 +14,7 @@ import tornado.gen
 
 
 available_branches = set()
+current_branch = None
 
 class Application(tornado.web.Application):
     def __init__(self):
@@ -42,7 +43,7 @@ class NodeHandler(tornado.websocket.WebSocketHandler):
     def open(self):
         self.branch = self.get_argument("branch")
         self.remove_node = True
-        print("branch", self.branch)
+        # print("branch", self.branch)
         if self.branch in NodeHandler.children_nodes:
             print(port, "force disconnect")
             self.remove_node = False
@@ -98,9 +99,16 @@ class Connector(object):
 
 
     def on_message(self, msg):
-        # global control_node
+        global available_branches
+        global current_branch
         if msg is None:
             # print("reconnect2 ...")
+            available_branches.remove(current_branch)
+            # available_branches = set([tuple(i) for i in branches])
+            branches = list(available_branches)
+            current_branch = tuple(branches[0])
+            host, port, branch = current_branch
+            self.ws_uri = "ws://%s:%s/node?branch=%s&from=%s" % (host, port, branch, port)
             tornado.ioloop.IOLoop.instance().call_later(1.0, self.connect)
             return
 
@@ -126,6 +134,7 @@ def on_message(msg):
     print(port, "node on message", msg)
     global control_node
     global available_branches
+    global current_branch
     if msg is None:
         tornado.ioloop.IOLoop.instance().call_later(1.0, connect)
         return
@@ -148,6 +157,7 @@ def on_message(msg):
             branches = json.loads(response.body)["available_branches"]
             print([tuple(i) for i in branches])
             available_branches = set([tuple(i) for i in branches])
+            current_branch = tuple(branches[0])
             Connector(*branches[0])
 
 def connect():
