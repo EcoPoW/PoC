@@ -20,6 +20,7 @@ class Application(tornado.web.Application):
     def __init__(self):
         handlers = [(r"/node", NodeHandler),
                     (r"/available_branches", AvailableBranchesHandler),
+                    (r"/disconnect", DisconnectHandler),
                     ]
         settings = {"debug":True}
 
@@ -28,8 +29,15 @@ class Application(tornado.web.Application):
 
 class AvailableBranchesHandler(tornado.web.RequestHandler):
     def get(self):
+        global available_branches
         self.finish({"available_branches":list(available_branches)})
 
+class DisconnectHandler(tornado.web.RequestHandler):
+    def get(self):
+        for connector in Connector.parent_nodes:
+            # connector.remove_node = False
+            connector.conn.close()
+        self.finish({})
 
 class NodeHandler(tornado.websocket.WebSocketHandler):
     children_nodes = dict()
@@ -41,6 +49,8 @@ class NodeHandler(tornado.websocket.WebSocketHandler):
         return True
 
     def open(self):
+        global available_branches
+
         self.branch = self.get_argument("branch")
         self.remove_node = True
         # print("branch", self.branch)
@@ -50,16 +60,25 @@ class NodeHandler(tornado.websocket.WebSocketHandler):
             self.close()
             return
 
-        print(port, "a child connected parent", self.branch)
+        print(port, "child connected branch", self.branch)
         if self.branch not in NodeHandler.children_nodes:
             NodeHandler.children_nodes[self.branch] = self
 
+            available_branches.remove(tuple(["localhost", port, self.branch]))
+            #TODO boardcast
+            for i in NodeHandler.children_nodes.values():
+                if i != self:
+                    i.write_message(json.dumps(["AVAILABLE_BRANCHES", [["localhost", port, self.branch]]]))
 
     def on_close(self):
-        print(port, "a child disconnected from parent")
+        global available_branches
+        print(port, "child disconnected from parent")
         if self.branch in NodeHandler.children_nodes and self.remove_node:
             del NodeHandler.children_nodes[self.branch]
         self.remove_node = True
+
+        available_branches.add(tuple(["localhost", port, self.branch]))
+        #TODO boardcast
 
     # def send_to_client(self, msg):
     #     print("send message: %s" % msg)
@@ -114,8 +133,15 @@ class Connector(object):
 
         seq = json.loads(msg)
         # print("on parent message", seq)
-        # if seq[0] == "BOOTSTRAP_ADDRESS":
-        #     print(seq[1])
+        if seq[0] == "":
+            # print(seq[1])
+
+            # available_branches.add(tuple(["localhost", port, "R"]))
+            # available_branches.add(tuple(["localhost", port, "L"]))
+            # print(port, "available branches", available_branches)
+
+            for i in NodeHandler.children_nodes.values():
+                i.write_message(json.dumps(["AVAILABLE_BRANCHES", [["localhost", port, "R"], ["localhost", port, "L"]]]))
 
 
 control_node = None
@@ -146,7 +172,7 @@ def on_message(msg):
             # root node
             available_branches.add(tuple(["localhost", port, "R"]))
             available_branches.add(tuple(["localhost", port, "L"]))
-            print("available branches", available_branches)
+            print(port, "available branches", available_branches)
         else:
             print("fetch", seq[1][0])
             http_client = tornado.httpclient.AsyncHTTPClient()
@@ -155,13 +181,13 @@ def on_message(msg):
             except Exception as e:
                 print("Error: %s" % e)
             branches = json.loads(response.body)["available_branches"]
-            print([tuple(i) for i in branches])
+            print("fetch result", [tuple(i) for i in branches])
             available_branches = set([tuple(i) for i in branches])
             current_branch = tuple(branches[0])
             Connector(*branches[0])
 
 def connect():
-    print("connect control", control_port, "from", port)
+    print(port, "connect control", control_port)
     tornado.websocket.websocket_connect("ws://localhost:%s/control" % control_port, callback=on_connect, on_message_callback=on_message)
 
 def main():

@@ -40,12 +40,12 @@ class ControlHandler(tornado.websocket.WebSocketHandler):
         return True
 
     def open(self):
-        print("a client connected to control")
+        print("control: node connected")
         # print("Clients", len(ControlHandler.known_addresses))
         self.addr = None
 
     def on_close(self):
-        print("a client disconnected from control")
+        print("control: node disconnected")
         if self.addr in ControlHandler.known_addresses:
             del ControlHandler.known_addresses[self.addr]
 
