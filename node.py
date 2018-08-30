@@ -64,11 +64,6 @@ class NodeHandler(tornado.websocket.WebSocketHandler):
         if self.branch not in NodeHandler.children_nodes:
             NodeHandler.children_nodes[self.branch] = self
 
-            available_branches.remove(tuple(["localhost", port, self.branch]))
-            #TODO boardcast
-            for i in NodeHandler.children_nodes.values():
-                print(port, ["DISCARDED_BRANCHES", [["localhost", port, self.branch]]])
-                i.write_message(json.dumps(["DISCARDED_BRANCHES", [["localhost", port, self.branch]]]))
 
     def on_close(self):
         global available_branches
@@ -78,7 +73,6 @@ class NodeHandler(tornado.websocket.WebSocketHandler):
         self.remove_node = True
 
         available_branches.add(tuple(["localhost", port, self.branch]))
-        #TODO boardcast
 
     # def send_to_client(self, msg):
     #     print("send message: %s" % msg)
@@ -107,7 +101,10 @@ class Connector(object):
     parent_nodes = set()
 
     def __init__(self, host, port, branch):
-        self.ws_uri = "ws://%s:%s/node?branch=%s&from=%s" % (host, port, branch, port)
+        self.host = host
+        self.port = port
+        self.branch = branch
+        self.ws_uri = "ws://%s:%s/node?branch=%s&from=%s" % (self.host, self.port, self.branch, self.port)
         self.conn = None
         self.connect()
 
@@ -129,6 +126,10 @@ class Connector(object):
         # except:
         #     print(port, "reconnect1 ...")
         #     tornado.ioloop.IOLoop.instance().call_later(1.0, self.connect)
+
+        available_branches.remove(tuple([self.host, self.port, self.branch]))
+        print(port, ["DISCARDED_BRANCHES", [[self.host, self.port, self.branch]]])
+        self.conn.write_message(json.dumps(["DISCARDED_BRANCHES", [[self.host, self.port, self.branch]]]))
 
         available_branches.add(tuple(["localhost", port, "R"]))
         available_branches.add(tuple(["localhost", port, "L"]))
