@@ -17,13 +17,13 @@ incremental_port = 8001
 class Application(tornado.web.Application):
     def __init__(self):
         handlers = [(r"/control", ControlHandler),
-                    (r"/new", NewHandler),
+                    (r"/new_node", NewNodeHandler),
                     ]
         settings = {"debug":True}
 
         tornado.web.Application.__init__(self, handlers, **settings)
 
-class NewHandler(tornado.web.RequestHandler):
+class NewNodeHandler(tornado.web.RequestHandler):
     def get(self):
         global incremental_port
         subprocess.Popen(["python", "node.py", "--port=%s"%incremental_port, "--control_port=8000"])
