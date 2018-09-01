@@ -104,7 +104,8 @@ class NodeHandler(tornado.websocket.WebSocketHandler):
                 available_branches.remove(tuple([branch_host, branch_port, branch]))
 
             for node in NodeHandler.children_nodes.values():
-                node.write_message(msg)
+                if node != self:
+                    node.write_message(msg)
 
             for connector in Connector.parent_nodes:
                 connector.conn.write_message(msg)
@@ -183,6 +184,7 @@ class Connector(object):
             for i in seq[1]:
                 branch_host, branch_port, branch = i
                 # print(branch_host, branch_port, branch)
+                print(port, branch_host, branch_port, branch)
                 available_branches.remove(tuple([branch_host, branch_port, branch]))
 
         print(port, "available branches", available_branches)
