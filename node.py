@@ -118,6 +118,15 @@ class NodeHandler(tornado.websocket.WebSocketHandler):
                 # print(branch_host, branch_port, branch)
                 available_branches.add(tuple([branch_host, branch_port, branch]))
 
+            for node in NodeHandler.children_nodes.values():
+                if node != self:
+                    node.write_message(msg)
+
+            for connector in Connector.parent_nodes:
+                connector.conn.write_message(msg)
+
+            print(port, "available branches on_message", available_branches)
+
 # connector to parent node
 class Connector(object):
     """Websocket Client"""
