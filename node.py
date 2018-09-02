@@ -90,11 +90,25 @@ class NodeHandler(tornado.websocket.WebSocketHandler):
 
         available_branches.add(tuple([host, port, self.branch]))
 
+        for node in NodeHandler.children_nodes.values():
+            if node != self:
+                node.write_message(json.dumps(["AVAILABLE_BRANCHES", [[host, port, self.branch]]]))
+
+        for connector in Connector.parent_nodes:
+            connector.conn.write_message(json.dumps(["AVAILABLE_BRANCHES", [[host, port, self.branch]]]))
+
         # print(port, tuple([self.from_host, self.from_port, "R"]))
         # print(port, tuple([self.from_host, self.from_port, "L"]))
 
         available_branches.remove(tuple([self.from_host, self.from_port, "R"]))
         available_branches.remove(tuple([self.from_host, self.from_port, "L"]))
+
+        for node in NodeHandler.children_nodes.values():
+            if node != self:
+                node.write_message(json.dumps(["DISCARDED_BRANCHES", [[self.from_host, self.from_port, "R"], [self.from_host, self.from_port, "L"]]]))
+
+        for connector in Connector.parent_nodes:
+            connector.conn.write_message(json.dumps(["DISCARDED_BRANCHES", [[self.from_host, self.from_port, "R"], [self.from_host, self.from_port, "L"]]]))
 
         print(port, "available branches on_close", available_branches)
 
