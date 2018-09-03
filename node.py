@@ -215,8 +215,8 @@ class Connector(object):
                 print(port, branch_host, branch_port, branch)
                 available_branches.remove(tuple([branch_host, branch_port, branch]))
 
-                for node in NodeHandler.children_nodes.values():
-                    node.write_message(msg)
+            for node in NodeHandler.children_nodes.values():
+                node.write_message(msg)
 
         elif seq[0] == "AVAILABLE_BRANCHES":
             for i in seq[1]:
@@ -224,8 +224,8 @@ class Connector(object):
                 print(port, branch_host, branch_port, branch)
                 available_branches.add(tuple([branch_host, branch_port, branch]))
 
-                for node in NodeHandler.children_nodes.values():
-                    node.write_message(msg)
+            for node in NodeHandler.children_nodes.values():
+                node.write_message(msg)
 
         print(port, "available branches", available_branches)
 
