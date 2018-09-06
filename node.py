@@ -15,7 +15,6 @@ import tornado.gen
 
 available_branches = set()
 current_branch = None
-current_path = []
 
 class Application(tornado.web.Application):
     def __init__(self):
@@ -195,7 +194,6 @@ class Connector(object):
     def on_message(self, msg):
         global available_branches
         global current_branch
-        global current_path
         if msg is None:
             # print("reconnect2 ...")
             available_branches.remove(current_branch)
@@ -212,7 +210,7 @@ class Connector(object):
         if seq[0] == "DISCARDED_BRANCHES":
             for i in seq[1]:
                 branch_host, branch_port, branch = i
-                print(port, branch_host, branch_port, branch)
+                # print(port, branch_host, branch_port, branch)
                 available_branches.remove(tuple([branch_host, branch_port, branch]))
 
             for node in NodeHandler.children_nodes.values():
@@ -221,7 +219,7 @@ class Connector(object):
         elif seq[0] == "AVAILABLE_BRANCHES":
             for i in seq[1]:
                 branch_host, branch_port, branch = i
-                print(port, branch_host, branch_port, branch)
+                # print(port, branch_host, branch_port, branch)
                 available_branches.add(tuple([branch_host, branch_port, branch]))
 
             for node in NodeHandler.children_nodes.values():
@@ -248,7 +246,6 @@ def on_message(msg):
     global control_node
     global available_branches
     global current_branch
-    global current_path
     if msg is None:
         tornado.ioloop.IOLoop.instance().call_later(1.0, connect)
         return
@@ -260,7 +257,6 @@ def on_message(msg):
             # root node
             available_branches.add(tuple([host, port, "0"]))
             available_branches.add(tuple([host, port, "1"]))
-            # current_path.append(tuple([host, port, ""]))
             print(port, "available branches", available_branches)
         else:
             print("fetch", seq[1][0])
