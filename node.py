@@ -97,18 +97,18 @@ class NodeHandler(tornado.websocket.WebSocketHandler):
         for connector in Connector.parent_nodes:
             connector.conn.write_message(json.dumps(["AVAILABLE_BRANCHES", [[host, port, self.branch]]]))
 
-        # print(port, tuple([self.from_host, self.from_port, "R"]))
-        # print(port, tuple([self.from_host, self.from_port, "L"]))
+        # print(port, tuple([self.from_host, self.from_port, self.branch+"0"]))
+        # print(port, tuple([self.from_host, self.from_port, self.branch+"1"]))
 
-        available_branches.remove(tuple([self.from_host, self.from_port, "R"]))
-        available_branches.remove(tuple([self.from_host, self.from_port, "L"]))
+        available_branches.remove(tuple([self.from_host, self.from_port, self.branch+"0"]))
+        available_branches.remove(tuple([self.from_host, self.from_port, self.branch+"1"]))
 
         for node in NodeHandler.children_nodes.values():
             if node != self:
-                node.write_message(json.dumps(["DISCARDED_BRANCHES", [[self.from_host, self.from_port, "R"], [self.from_host, self.from_port, "L"]]]))
+                node.write_message(json.dumps(["DISCARDED_BRANCHES", [[self.from_host, self.from_port, self.branch+"0"], [self.from_host, self.from_port, self.branch+"1"]]]))
 
         for connector in Connector.parent_nodes:
-            connector.conn.write_message(json.dumps(["DISCARDED_BRANCHES", [[self.from_host, self.from_port, "R"], [self.from_host, self.from_port, "L"]]]))
+            connector.conn.write_message(json.dumps(["DISCARDED_BRANCHES", [[self.from_host, self.from_port, self.branch+"0"], [self.from_host, self.from_port, self.branch+"1"]]]))
 
         print(port, "available branches on_close", available_branches)
 
@@ -184,12 +184,12 @@ class Connector(object):
         #     print(port, "reconnect1 ...")
         #     tornado.ioloop.IOLoop.instance().call_later(1.0, self.connect)
 
-        available_branches.add(tuple([host, port, "R"]))
-        available_branches.add(tuple([host, port, "L"]))
+        available_branches.add(tuple([host, port, self.branch+"0"]))
+        available_branches.add(tuple([host, port, self.branch+"1"]))
 
         # for i in NodeHandler.children_nodes.values():
-        #     i.write_message(json.dumps(["AVAILABLE_BRANCHES", [[host, port, "R"], [host, port, "L"]]]))
-        self.conn.write_message(json.dumps(["AVAILABLE_BRANCHES", [[host, port, "R"], [host, port, "L"]]]))
+        #     i.write_message(json.dumps(["AVAILABLE_BRANCHES", [[host, port, self.branch+"0"], [host, port, self.branch+"1"]]]))
+        self.conn.write_message(json.dumps(["AVAILABLE_BRANCHES", [[host, port, self.branch+"0"], [host, port, self.branch+"1"]]]))
 
 
     def on_message(self, msg):
@@ -258,9 +258,9 @@ def on_message(msg):
         # print("BOOTSTRAP_ADDRESS", seq)
         if not seq[1]:
             # root node
-            available_branches.add(tuple(["localhost", port, "R"]))
-            available_branches.add(tuple(["localhost", port, "L"]))
-            current_path.append(tuple(["localhost", port, ""]))
+            available_branches.add(tuple([host, port, "0"]))
+            available_branches.add(tuple([host, port, "1"]))
+            # current_path.append(tuple([host, port, ""]))
             print(port, "available branches", available_branches)
         else:
             print("fetch", seq[1][0])
