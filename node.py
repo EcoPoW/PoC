@@ -15,12 +15,14 @@ import tornado.gen
 
 available_branches = set()
 current_branch = None
+current_groupid = ""
 
 class Application(tornado.web.Application):
     def __init__(self):
         handlers = [(r"/node", NodeHandler),
                     (r"/available_branches", AvailableBranchesHandler),
                     (r"/disconnect", DisconnectHandler),
+                    (r"/broadcast", BroadcastHandler),
                     ]
         settings = {"debug":True}
 
@@ -39,6 +41,19 @@ class DisconnectHandler(tornado.web.RequestHandler):
             connector.conn.close()
         self.finish({})
         tornado.ioloop.IOLoop.instance().stop()
+
+class BroadcastHandler(tornado.web.RequestHandler):
+    def get(self):
+        global current_groupid
+        test_msg = ["TEST_MSG", current_groupid, time.time()]
+
+        for node in NodeHandler.children_nodes.values():
+            node.write_message(json.dumps(test_msg))
+
+        for connector in Connector.parent_nodes:
+            connector.conn.write_message(json.dumps(test_msg))
+
+        self.finish({})
 
 
 # connect point from child node
@@ -78,6 +93,8 @@ class NodeHandler(tornado.websocket.WebSocketHandler):
 
         for connector in Connector.parent_nodes:
             connector.conn.write_message(json.dumps(["DISCARDED_BRANCHES", [[host, port, self.branch]]]))
+
+        self.write_message(json.dumps(["GROUP_ID", self.branch]))
 
 
     def on_close(self):
@@ -151,6 +168,15 @@ class NodeHandler(tornado.websocket.WebSocketHandler):
 
             print(port, "available branches on_message", available_branches)
 
+        else:
+            for node in NodeHandler.children_nodes.values():
+                if node != self:
+                    node.write_message(msg)
+
+            for connector in Connector.parent_nodes:
+                connector.conn.write_message(msg)
+
+
 # connector to parent node
 class Connector(object):
     """Websocket Client"""
@@ -194,6 +220,7 @@ class Connector(object):
     def on_message(self, msg):
         global available_branches
         global current_branch
+        global current_groupid
         if msg is None:
             # print("reconnect2 ...")
             available_branches.remove(current_branch)
@@ -216,6 +243,8 @@ class Connector(object):
             for node in NodeHandler.children_nodes.values():
                 node.write_message(msg)
 
+            print(port, "available branches", available_branches)
+
         elif seq[0] == "AVAILABLE_BRANCHES":
             for i in seq[1]:
                 branch_host, branch_port, branch = i
@@ -225,7 +254,15 @@ class Connector(object):
             for node in NodeHandler.children_nodes.values():
                 node.write_message(msg)
 
-        print(port, "available branches", available_branches)
+            print(port, "available branches", available_branches)
+
+        elif seq[0] == "GROUP_ID":
+            print(seq[1])
+            current_groupid = seq[1]
+
+        else:
+            for node in NodeHandler.children_nodes.values():
+                node.write_message(msg)
 
 
 # connector to control center
@@ -246,6 +283,7 @@ def on_message(msg):
     global control_node
     global available_branches
     global current_branch
+    global current_groupid
     if msg is None:
         tornado.ioloop.IOLoop.instance().call_later(1.0, connect)
         return
@@ -257,6 +295,7 @@ def on_message(msg):
             # root node
             available_branches.add(tuple([host, port, "0"]))
             available_branches.add(tuple([host, port, "1"]))
+            current_groupid = ""
             print(port, "available branches", available_branches)
         else:
             print("fetch", seq[1][0])
