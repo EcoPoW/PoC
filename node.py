@@ -12,9 +12,10 @@ import tornado.httpserver
 import tornado.httpclient
 import tornado.gen
 
-NODE_REDUNDANCY = 2
+NODE_REDUNDANCY = 4
 
 available_branches = set()
+buddies = set()
 current_branch = None
 current_groupid = ""
 
@@ -34,8 +35,9 @@ class Application(tornado.web.Application):
 class AvailableBranchesHandler(tornado.web.RequestHandler):
     def get(self):
         global available_branches
+        global buddies
         self.finish({"available_branches":list(available_branches),
-                     "buddy":1,
+                     "buddies":list(buddies), "buddy":len(buddies),
                      "group_id": current_groupid})
 
 class DisconnectHandler(tornado.web.RequestHandler):
@@ -278,6 +280,7 @@ class BuddyHandler(tornado.websocket.WebSocketHandler):
 
     def open(self):
         global available_branches
+        global buddies
 
         self.from_host = self.get_argument("host")
         self.from_port = self.get_argument("port")
@@ -292,17 +295,11 @@ class BuddyHandler(tornado.websocket.WebSocketHandler):
         if self not in BuddyHandler.buddy_nodes:
             BuddyHandler.buddy_nodes.add(self)
 
-        # available_branches.remove(tuple([host, port, self.branch]))
-        # print(port, "available branches open", available_branches)
+        self.write_message(json.dumps(["GROUP_ID_FOR_BUDDY", current_groupid, list(buddies)]))
+        buddies.add(tuple([self.from_host, self.from_port]))
 
-        # print(port, ["DISCARDED_BRANCHES", [[host, port]]])
-        # for node in BuddyHandler.buddy_nodes.values():
-        #     node.write_message(json.dumps(["DISCARDED_BRANCHES", [[host, port]]]))
-
-        # for connector in BuddyConnector.buddy_nodes:
-        #     connector.conn.write_message(json.dumps(["DISCARDED_BRANCHES", [[host, port]]]))
-
-        self.write_message(json.dumps(["GROUP_ID", current_groupid]))
+        # maybe it's wrong, we should tell buddy all the available branches existing
+        self.write_message(json.dumps(["AVAILABLE_BRANCHES", [[host, port, current_groupid+"0"], [host, port, current_groupid+"1"]]]))
 
 
     def on_close(self):
@@ -427,6 +424,7 @@ class BuddyConnector(object):
 
     def on_message(self, msg):
         global available_branches
+        global buddies
         global current_branch
         global current_groupid
         if msg is None:
@@ -464,11 +462,20 @@ class BuddyConnector(object):
 
             print(port, "available branches", available_branches)
 
-        elif seq[0] == "GROUP_ID":
-            self.branch = current_groupid = seq[1]
+        elif seq[0] == "GROUP_ID_FOR_BUDDY":
+            current_groupid = self.branch = seq[1]
+            available_branches.add(tuple([host, port, current_groupid+"0"]))
+            available_branches.add(tuple([host, port, current_groupid+"1"]))
+            print(port, "buddies", buddies, seq[2])
+            buddies = buddies.union(set([tuple(i) for i in seq[2]]))
+            buddies.add(tuple([host, port]))
+            print(port, "buddies", buddies)
+
             # print(port, seq[1], self.conn)
             if self.conn is not None:
                 self.conn.write_message(json.dumps(["AVAILABLE_BRANCHES", [[host, port, self.branch+"0"], [host, port, self.branch+"1"]]]))
+
+            print(port, "available branches", available_branches)
 
         else:
             for node in NodeHandler.child_nodes.values():
@@ -493,6 +500,7 @@ def on_message(msg):
     print(port, "node on message", msg)
     global control_node
     global available_branches
+    global buddies
     global current_branch
     global current_groupid
     if msg is None:
@@ -507,6 +515,8 @@ def on_message(msg):
             available_branches.add(tuple([host, port, "0"]))
             available_branches.add(tuple([host, port, "1"]))
             current_groupid = ""
+            buddies.add(tuple([host, port]))
+
             print(port, "available branches", available_branches)
         else:
             print("fetch", seq[1][0])
@@ -520,7 +530,7 @@ def on_message(msg):
             buddy = result["buddy"]
             print("fetch result", [tuple(i) for i in branches])
             print("      buddy", buddy)
-            if buddy > 0:
+            if buddy < NODE_REDUNDANCY:
                 BuddyConnector(*seq[1][0])
             else:
                 available_branches = set([tuple(i) for i in branches])
