@@ -37,7 +37,7 @@ class AvailableBranchesHandler(tornado.web.RequestHandler):
         global available_branches
         global buddies
         self.finish({"available_branches":list(available_branches),
-                     "buddies":list(buddies), "buddy":len(buddies),
+                     "buddy":len(buddies), "_buddies":list(buddies),
                      "group_id": current_groupid})
 
 class DisconnectHandler(tornado.web.RequestHandler):
@@ -466,8 +466,14 @@ class BuddyConnector(object):
             current_groupid = self.branch = seq[1]
             available_branches.add(tuple([host, port, current_groupid+"0"]))
             available_branches.add(tuple([host, port, current_groupid+"1"]))
-            print(port, "buddies", buddies, seq[2])
+
             buddies = buddies.union(set([tuple(i) for i in seq[2]]))
+            buddies_left = buddies - set([tuple([host, port])])
+            buddies_left = buddies_left - set([(i.host, i.port) for i in BuddyConnector.buddy_nodes])
+            buddies_left = buddies_left - set([(i.from_host, i.from_port) for i in BuddyHandler.buddy_nodes])
+            for h, p in buddies_left:
+                print(port, "buddy to connect", h, p)
+                BuddyConnector(h, p)
             buddies.add(tuple([host, port]))
             print(port, "buddies", buddies)
 
@@ -529,8 +535,8 @@ def on_message(msg):
             branches = result["available_branches"]
             buddy = result["buddy"]
             print("fetch result", [tuple(i) for i in branches])
-            print("      buddy", buddy)
             if buddy < NODE_REDUNDANCY:
+                print(port, "BuddyConnector", seq[1])
                 BuddyConnector(*seq[1][0])
             else:
                 available_branches = set([tuple(i) for i in branches])
