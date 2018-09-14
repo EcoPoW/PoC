@@ -27,7 +27,7 @@ class NewNodeHandler(tornado.web.RequestHandler):
     def get(self):
         global incremental_port
         subprocess.Popen(["python", "node.py", "--port=%s"%incremental_port, "--control_port=8000"])
-        self.finish("new node "+str(incremental_port))
+        self.finish("new node %s\n" % incremental_port)
         incremental_port += 1
 
 class ControlHandler(tornado.websocket.WebSocketHandler):
