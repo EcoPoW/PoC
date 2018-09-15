@@ -12,7 +12,7 @@ import tornado.httpserver
 import tornado.httpclient
 import tornado.gen
 
-NODE_REDUNDANCY = 4
+NODE_REDUNDANCY = 3
 
 available_branches = set()
 available_buddies = set()
@@ -204,22 +204,22 @@ class NodeConnector(object):
     def on_connect(self, future):
         global available_branches
         global parent_nodes
-        print(port, "node connect")
+        print(current_port, "node connect")
 
         # try:
         self.conn = future.result()
         if self not in NodeConnector.parent_nodes:
             NodeConnector.parent_nodes.add(self)
         # except:
-        #     print(port, "reconnect1 ...")
+        #     print(current_port, "reconnect1 ...")
         #     tornado.ioloop.IOLoop.instance().call_later(1.0, self.connect)
 
-        available_branches.add(tuple([host, port, self.branch+"0"]))
-        available_branches.add(tuple([host, port, self.branch+"1"]))
+        available_branches.add(tuple([current_host, current_port, self.branch+"0"]))
+        available_branches.add(tuple([current_host, current_port, self.branch+"1"]))
 
         # for i in NodeHandler.child_nodes.values():
-        #     i.write_message(json.dumps(["AVAILABLE_BRANCHES", [[host, port, self.branch+"0"], [host, port, self.branch+"1"]]]))
-        self.conn.write_message(json.dumps(["AVAILABLE_BRANCHES", [[host, port, self.branch+"0"], [host, port, self.branch+"1"]]]))
+        #     i.write_message(json.dumps(["AVAILABLE_BRANCHES", [[current_host, current_port, self.branch+"0"], [current_host, current_port, self.branch+"1"]]]))
+        self.conn.write_message(json.dumps(["AVAILABLE_BRANCHES", [[current_host, current_port, self.branch+"0"], [current_host, current_port, self.branch+"1"]]]))
 
 
     def on_message(self, msg):
@@ -238,31 +238,31 @@ class NodeConnector(object):
             return
 
         seq = json.loads(msg)
-        print(port, "on message from parent", seq)
+        print(current_port, "on message from parent", seq)
         if seq[0] == "DISCARDED_BRANCHES":
             for i in seq[1]:
                 branch_host, branch_port, branch = i
-                # print(port, branch_host, branch_port, branch)
+                # print(current_port, branch_host, branch_port, branch)
                 available_branches.remove(tuple([branch_host, branch_port, branch]))
 
             for node in NodeHandler.child_nodes.values():
                 node.write_message(msg)
 
-            print(port, "available branches", available_branches)
+            print(current_port, "available branches", available_branches)
 
         elif seq[0] == "AVAILABLE_BRANCHES":
             for i in seq[1]:
                 branch_host, branch_port, branch = i
-                # print(port, branch_host, branch_port, branch)
+                # print(current_port, branch_host, branch_port, branch)
                 available_branches.add(tuple([branch_host, branch_port, branch]))
 
             for node in NodeHandler.child_nodes.values():
                 node.write_message(msg)
 
-            print(port, "available branches", available_branches)
+            print(current_port, "available branches", available_branches)
 
         elif seq[0] == "GROUP_ID":
-            print(seq[1])
+            # print(current_port, seq[1])
             current_groupid = seq[1]
 
         else:
@@ -406,7 +406,7 @@ class BuddyConnector(object):
 
         try:
             self.conn = future.result()
-            # print(port, self.conn)
+            # print(current_port, self.conn)
             if self not in BuddyConnector.buddy_nodes:
                 BuddyConnector.buddy_nodes.add(self)
         except:
@@ -525,7 +525,7 @@ def on_message(msg):
 
             print(current_port, "available branches", available_branches)
         else:
-            print("fetch", seq[1][0])
+            print(current_port, "fetch", seq[1][0])
             http_client = tornado.httpclient.AsyncHTTPClient()
             try:
                 response = yield http_client.fetch("http://%s:%s/available_branches" % tuple(seq[1][0]))
@@ -534,7 +534,7 @@ def on_message(msg):
             result = json.loads(response.body)
             branches = result["available_branches"]
             buddy = result["buddy"]
-            print("fetch result", [tuple(i) for i in branches])
+            print(current_port, "fetch result", [tuple(i) for i in branches])
             if buddy < NODE_REDUNDANCY:
                 print(current_port, "BuddyConnector", seq[1])
                 BuddyConnector(*seq[1][0])
