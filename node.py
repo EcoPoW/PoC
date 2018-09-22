@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import time
 import socket
 import subprocess
@@ -353,7 +355,7 @@ class BuddyHandler(tornado.websocket.WebSocketHandler):
             for connector in BuddyConnector.buddy_nodes:
                 connector.conn.write_message(msg)
 
-            print(current_port, "available branches on_message", available_branches)
+            print(current_port, "available branches buddy on message", available_branches)
 
         elif seq[0] == "AVAILABLE_BRANCHES":
             for i in seq[1]:
@@ -368,7 +370,7 @@ class BuddyHandler(tornado.websocket.WebSocketHandler):
             for connector in BuddyConnector.buddy_nodes:
                 connector.conn.write_message(msg)
 
-            print(current_port, "available branches on_message", available_branches)
+            print(current_port, "available branches buddy on message", available_branches)
 
         else:
             for node in BuddyHandler.buddy_nodes:
@@ -393,7 +395,7 @@ class BuddyConnector(object):
         self.connect()
 
     def connect(self):
-        print(current_port, self.ws_uri)
+        # print(current_port, self.ws_uri)
         tornado.websocket.websocket_connect(self.ws_uri,
                                 callback = self.on_connect,
                                 on_message_callback = self.on_message,
@@ -449,7 +451,7 @@ class BuddyConnector(object):
             for node in NodeHandler.child_nodes.values():
                 node.write_message(msg)
 
-            print(current_port, "available branches", available_branches)
+            print(current_port, "available branches buddy", available_branches)
 
         elif seq[0] == "AVAILABLE_BRANCHES":
             for i in seq[1]:
@@ -460,7 +462,7 @@ class BuddyConnector(object):
             for node in NodeHandler.child_nodes.values():
                 node.write_message(msg)
 
-            print(current_port, "available branches", available_branches)
+            print(current_port, "available branches buddy", available_branches)
 
         elif seq[0] == "GROUP_ID_FOR_BUDDY":
             current_groupid = self.branch = seq[1]
@@ -472,7 +474,7 @@ class BuddyConnector(object):
             buddies_left = buddies_left - set([(i.host, i.port) for i in BuddyConnector.buddy_nodes])
             buddies_left = buddies_left - set([(i.from_host, i.from_port) for i in BuddyHandler.buddy_nodes])
             for h, p in buddies_left:
-                print(current_port, "buddy to connect", h, p)
+                # print(current_port, "buddy to connect", h, p)
                 BuddyConnector(h, p)
             available_buddies.add(tuple([current_host, current_port]))
             print(current_port, "available buddies", available_buddies)
@@ -481,7 +483,7 @@ class BuddyConnector(object):
             if self.conn is not None:
                 self.conn.write_message(json.dumps(["AVAILABLE_BRANCHES", [[current_host, current_port, self.branch+"0"], [current_host, current_port, self.branch+"1"]]]))
 
-            print(current_port, "available branches", available_branches)
+            # print(current_port, "available branches buddy", available_branches)
 
         else:
             for node in NodeHandler.child_nodes.values():
@@ -533,6 +535,7 @@ def on_message(msg):
                 print("Error: %s" % e)
             result = json.loads(response.body)
             branches = result["available_branches"]
+            branches.sort(key=lambda l:len(l[2]))
             buddy = result["buddy"]
             print(current_port, "fetch result", [tuple(i) for i in branches])
             if buddy < NODE_REDUNDANCY:
@@ -544,6 +547,7 @@ def on_message(msg):
                 NodeConnector(*branches[0])
 
 def connect():
+    print("\n\n")
     print(current_port, "connect control", control_port)
     tornado.websocket.websocket_connect("ws://localhost:%s/control" % control_port, callback=on_connect, on_message_callback=on_message)
 
