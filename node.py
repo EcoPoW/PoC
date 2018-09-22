@@ -156,6 +156,12 @@ class NodeHandler(tornado.websocket.WebSocketHandler):
         self.write_message(json.dumps(["GROUP_ID", self.branch, buddies]))
         available_children_buddies.setdefault(self.branch, set()).add((self.from_host, self.from_port))
 
+        # for node in BuddyHandler.buddy_nodes:
+        #     if node != self:
+        #         node.write_message(json.dumps(["AVAILABLE_BRANCHES", [[self.from_host, self.from_port, self.branch]]]))
+
+        # for connector in BuddyConnector.buddy_nodes:
+        #     connector.conn.write_message(json.dumps(["AVAILABLE_BRANCHES", [[self.from_host, self.from_port, self.branch]]]))
 
     def on_close(self):
         global available_branches
@@ -347,7 +353,7 @@ class NodeConnector(object):
         elif seq[0] == "GROUP_ID":
             # print(current_port, seq[1])
             current_groupid = seq[1]
-            available_buddies = set(seq[2])
+            available_buddies = set([tuple(i) for i in seq[2]])
 
         else:
             for node in NodeHandler.child_nodes.values():
@@ -421,6 +427,7 @@ class BuddyHandler(tornado.websocket.WebSocketHandler):
     @tornado.gen.coroutine
     def on_message(self, msg):
         global available_branches
+        global available_children_buddies
         seq = json.loads(msg)
         print(current_port, "on message from buddy connector", seq)
         if seq[0] == "DISCARDED_BRANCHES":
@@ -443,8 +450,9 @@ class BuddyHandler(tornado.websocket.WebSocketHandler):
         elif seq[0] == "AVAILABLE_BRANCHES":
             for i in seq[1]:
                 branch_host, branch_port, branch = i
-                print(branch_host, branch_port, branch)
+                # print(branch_host, branch_port, branch)
                 available_branches.add(tuple([branch_host, branch_port, branch]))
+                available_children_buddies.setdefault(branch[:-1], set()).add((branch_host, branch_port))
 
             for node in BuddyHandler.buddy_nodes:
                 if node != self:
@@ -510,6 +518,7 @@ class BuddyConnector(object):
     def on_message(self, msg):
         global available_branches
         global available_buddies
+        global available_children_buddies
         global current_branch
         global current_groupid
         if msg is None:
@@ -542,6 +551,7 @@ class BuddyConnector(object):
                 branch_host, branch_port, branch = i
                 # print(current_port, branch_host, branch_port, branch)
                 available_branches.add(tuple([branch_host, branch_port, branch]))
+                available_children_buddies.setdefault(branch[:-1], set()).add((branch_host, branch_port))
 
             for node in NodeHandler.child_nodes.values():
                 node.write_message(msg)
