@@ -20,6 +20,7 @@ class Application(tornado.web.Application):
     def __init__(self):
         handlers = [(r"/control", ControlHandler),
                     (r"/new_node", NewNodeHandler),
+                    (r"/dashboard", DashboardHandler),
                     ]
         settings = {"debug":True}
 
@@ -31,6 +32,11 @@ class NewNodeHandler(tornado.web.RequestHandler):
         subprocess.Popen(["python", "node.py", "--port=%s"%incremental_port, "--control_port=8000"])
         self.finish("new node %s\n" % incremental_port)
         incremental_port += 1
+
+class DashboardHandler(tornado.web.RequestHandler):
+    def get(self):
+        self.write("")
+        self.finish()
 
 class ControlHandler(tornado.websocket.WebSocketHandler):
     known_addresses = dict()

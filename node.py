@@ -28,6 +28,7 @@ class Application(tornado.web.Application):
                     (r"/available_branches", AvailableBranchesHandler),
                     (r"/disconnect", DisconnectHandler),
                     (r"/broadcast", BroadcastHandler),
+                    (r"/dashboard", DashboardHandler),
                     ]
         settings = {"debug":True}
 
@@ -38,8 +39,15 @@ class AvailableBranchesHandler(tornado.web.RequestHandler):
     def get(self):
         global available_branches
         global available_buddies
-        self.finish({"available_branches":list(available_branches),
-                     "buddy":len(available_buddies), "_buddies":list(available_buddies),
+
+        branches = list(available_branches)
+
+        # parents = []
+        # for node in NodeConnector.parent_nodes:
+        #     parents.append([node.host, node.port])
+        self.finish({"available_branches": branches,
+                     "buddy":len(available_buddies),
+                     #"parents": parents,
                      "group_id": current_groupid})
 
 class DisconnectHandler(tornado.web.RequestHandler):
@@ -68,6 +76,28 @@ class BroadcastHandler(tornado.web.RequestHandler):
 
         self.finish({})
 
+class DashboardHandler(tornado.web.RequestHandler):
+    def get(self):
+        # global available_branches
+        # global available_buddies
+
+        branches = list(available_branches)
+        branches.sort(key=lambda l:len(l[2]))
+
+        parents = []
+        self.write("<br>group_id: %s <br>" % current_groupid)
+        self.write("<br>available_branches:<br>")
+        for branch in branches:
+            self.write("%s %s %s <br>" %branch)
+
+        self.write("<br>buddy: %s<br>" % len(available_buddies))
+        for buddy in available_buddies:
+            self.write("%s %s <br>" % buddy)
+
+        self.write("<br>parents:<br>")
+        for node in NodeConnector.parent_nodes:
+            self.write("%s %s<br>" %(node.host, node.port))
+        self.finish()
 
 # connect point from child node
 class NodeHandler(tornado.websocket.WebSocketHandler):
@@ -526,6 +556,9 @@ def on_message(msg):
             available_buddies.add(tuple([current_host, current_port]))
 
             print(current_port, "available branches", available_branches)
+        elif len(seq[1]) < NODE_REDUNDANCY:
+            print(current_port, "connect to root as buddy", seq[1])
+            BuddyConnector(*seq[1][0])
         else:
             print(current_port, "fetch", seq[1][0])
             http_client = tornado.httpclient.AsyncHTTPClient()
@@ -536,15 +569,12 @@ def on_message(msg):
             result = json.loads(response.body)
             branches = result["available_branches"]
             branches.sort(key=lambda l:len(l[2]))
-            buddy = result["buddy"]
+            # buddy = result["buddy"]
             print(current_port, "fetch result", [tuple(i) for i in branches])
-            if buddy < NODE_REDUNDANCY:
-                print(current_port, "BuddyConnector", seq[1])
-                BuddyConnector(*seq[1][0])
-            else:
-                available_branches = set([tuple(i) for i in branches])
-                current_branch = tuple(branches[0])
-                NodeConnector(*branches[0])
+
+            available_branches = set([tuple(i) for i in branches])
+            current_branch = tuple(branches[0])
+            NodeConnector(*branches[0])
 
 def connect():
     print("\n\n")
