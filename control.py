@@ -69,7 +69,8 @@ class ControlHandler(tornado.websocket.WebSocketHandler):
             self.addr = tuple(seq[1:3])
             # print(self.addr)
             known_addresses_list = list(ControlHandler.known_addresses)
-            random.shuffle(known_addresses_list)
+            # random.shuffle(known_addresses_list)
+            known_addresses_list.sort(key=lambda l:int(l[1]))
             self.write_message(json.dumps(["BOOTSTRAP_ADDRESS", known_addresses_list[:3]]))
             ControlHandler.known_addresses[self.addr] = self
             # print(ControlHandler.known_addresses)

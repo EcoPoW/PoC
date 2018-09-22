@@ -223,6 +223,13 @@ class NodeHandler(tornado.websocket.WebSocketHandler):
             for connector in NodeConnector.parent_nodes:
                 connector.conn.write_message(msg)
 
+            for node in BuddyHandler.buddy_nodes:
+                if node != self:
+                    node.write_message(msg)
+
+            for connector in BuddyConnector.buddy_nodes:
+                connector.conn.write_message(msg)
+
             # print(current_port, "available branches on_message", available_branches)
 
         elif seq[0] == "AVAILABLE_BRANCHES":
@@ -236,6 +243,13 @@ class NodeHandler(tornado.websocket.WebSocketHandler):
                     node.write_message(msg)
 
             for connector in NodeConnector.parent_nodes:
+                connector.conn.write_message(msg)
+
+            for node in BuddyHandler.buddy_nodes:
+                if node != self:
+                    node.write_message(msg)
+
+            for connector in BuddyConnector.buddy_nodes:
                 connector.conn.write_message(msg)
 
             # print(current_port, "available branches on_message", available_branches)
@@ -407,14 +421,13 @@ class BuddyHandler(tornado.websocket.WebSocketHandler):
     @tornado.gen.coroutine
     def on_message(self, msg):
         global available_branches
-        print(current_port, "on message from buddy connector", msg)
         seq = json.loads(msg)
+        print(current_port, "on message from buddy connector", seq)
         if seq[0] == "DISCARDED_BRANCHES":
             # print(seq[1])
             for i in seq[1]:
                 branch_host, branch_port, branch = i
                 # print(branch_host, branch_port, branch)
-                print(current_port, "Available_Branches", available_branches, tuple(i))
                 if tuple([branch_host, branch_port, branch]) in available_branches:
                     available_branches.remove(tuple([branch_host, branch_port, branch]))
 
@@ -430,7 +443,7 @@ class BuddyHandler(tornado.websocket.WebSocketHandler):
         elif seq[0] == "AVAILABLE_BRANCHES":
             for i in seq[1]:
                 branch_host, branch_port, branch = i
-                # print(branch_host, branch_port, branch)
+                print(branch_host, branch_port, branch)
                 available_branches.add(tuple([branch_host, branch_port, branch]))
 
             for node in BuddyHandler.buddy_nodes:
