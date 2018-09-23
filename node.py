@@ -86,16 +86,16 @@ class DashboardHandler(tornado.web.RequestHandler):
         branches.sort(key=lambda l:len(l[2]))
 
         parents = []
-        self.write("<br>group_id: %s <br>" % current_groupid)
+        self.write("<br>current_groupid: %s <br>" % current_groupid)
         self.write("<br>available_branches:<br>")
         for branch in branches:
             self.write("%s %s %s <br>" %branch)
 
-        self.write("<br>buddy: %s<br>" % len(available_buddies))
+        self.write("<br>available_buddies: %s<br>" % len(available_buddies))
         for buddy in available_buddies:
             self.write("%s %s <br>" % buddy)
 
-        self.write("<br>parents:<br>")
+        self.write("<br>parent_nodes:<br>")
         for node in NodeConnector.parent_nodes:
             self.write("%s %s<br>" %(node.host, node.port))
 
@@ -360,6 +360,8 @@ class NodeConnector(object):
             for h, p in buddies_left:
                 # print(current_port, "buddy to connect", h, p)
                 BuddyConnector(h, p)
+
+            available_children_buddies.setdefault(current_groupid, set()).add((current_host, current_port))
 
         else:
             for node in NodeHandler.child_nodes.values():
