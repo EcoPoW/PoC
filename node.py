@@ -353,7 +353,13 @@ class NodeConnector(object):
         elif seq[0] == "GROUP_ID":
             # print(current_port, seq[1])
             current_groupid = seq[1]
-            available_buddies = set([tuple(i) for i in seq[2]])
+            available_buddies = available_buddies.union(set([tuple(i) for i in seq[2]]))
+            buddies_left = available_buddies - set([tuple([current_host, current_port])])
+            buddies_left = buddies_left - set([(i.host, i.port) for i in BuddyConnector.buddy_nodes])
+            buddies_left = buddies_left - set([(i.from_host, i.from_port) for i in BuddyHandler.buddy_nodes])
+            for h, p in buddies_left:
+                # print(current_port, "buddy to connect", h, p)
+                BuddyConnector(h, p)
 
         else:
             for node in NodeHandler.child_nodes.values():
@@ -385,8 +391,8 @@ class BuddyHandler(tornado.websocket.WebSocketHandler):
         if self not in BuddyHandler.buddy_nodes:
             BuddyHandler.buddy_nodes.add(self)
 
-        self.write_message(json.dumps(["GROUP_ID_FOR_BUDDY", current_groupid, list(available_buddies)]))
         available_buddies.add(tuple([self.from_host, self.from_port]))
+        self.write_message(json.dumps(["GROUP_ID_FOR_BUDDY", current_groupid, list(available_buddies)]))
 
         # maybe it's wrong, we should tell buddy all the available branches existing
         self.write_message(json.dumps(["AVAILABLE_BRANCHES", [[current_host, current_port, current_groupid+"0"], [current_host, current_port, current_groupid+"1"]]]))
@@ -570,8 +576,7 @@ class BuddyConnector(object):
             for h, p in buddies_left:
                 # print(current_port, "buddy to connect", h, p)
                 BuddyConnector(h, p)
-            available_buddies.add(tuple([current_host, current_port]))
-            print(current_port, "available buddies", available_buddies)
+            # print(current_port, "available buddies", available_buddies)
 
             # print(current_port, seq[1], self.conn)
             if self.conn is not None:
@@ -617,7 +622,6 @@ def on_message(msg):
             available_branches.add(tuple([current_host, current_port, "0"]))
             available_branches.add(tuple([current_host, current_port, "1"]))
             current_groupid = ""
-            available_buddies.add(tuple([current_host, current_port]))
 
             # print(current_port, "available branches", available_branches)
         elif len(seq[1]) < NODE_REDUNDANCY:
@@ -649,6 +653,7 @@ def main():
     global current_host
     global current_port
     global control_port
+    global available_buddies
 
     parser = argparse.ArgumentParser(description="node description")
     parser.add_argument('--port')
@@ -658,6 +663,7 @@ def main():
     current_host = "localhost"
     current_port = args.port
     control_port = args.control_port
+    available_buddies.add(tuple([current_host, current_port]))
 
     server = Application()
     server.listen(current_port)
