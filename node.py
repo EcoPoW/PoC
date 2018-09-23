@@ -22,6 +22,28 @@ available_buddies = set()
 available_children_buddies = dict()
 current_branch = None
 current_groupid = ""
+processed_message_ids = set()
+
+def forward(msg):
+    global processed_message_ids
+
+    msg_id = msg[-1]
+    if msg_id in processed_message_ids:
+        return
+
+    for child_node in NodeHandler.child_nodes.values():
+        child_node.write_message(msg)
+
+    for parent_connector in NodeConnector.parent_nodes:
+        parent_connector.conn.write_message(msg)
+
+    for buddy_node in BuddyHandler.buddy_nodes:
+        buddy_node.write_message(msg)
+
+    for buddy_connector in BuddyConnector.buddy_nodes:
+        buddy_connector.conn.write_message(msg)
+
+    processed_message_ids.add(msg_id)
 
 class Application(tornado.web.Application):
     def __init__(self):
@@ -250,12 +272,20 @@ class NodeHandler(tornado.websocket.WebSocketHandler):
             # print(current_port, "available branches on_message", available_branches)
 
         else:
-            for node in NodeHandler.child_nodes.values():
-                if node != self:
-                    node.write_message(msg)
+            # for node in NodeHandler.child_nodes.values():
+            #     if node != self:
+            #         node.write_message(msg)
 
-            for connector in NodeConnector.parent_nodes:
-                connector.conn.write_message(msg)
+            # for connector in NodeConnector.parent_nodes:
+            #     connector.conn.write_message(msg)
+
+            # for node in BuddyHandler.buddy_nodes:
+            #     if node != self:
+            #         node.write_message(msg)
+
+            # for connector in BuddyConnector.buddy_nodes:
+            #     connector.conn.write_message(msg)
+            forward(msg)
 
 
 # connector to parent node
@@ -354,9 +384,9 @@ class NodeConnector(object):
             available_children_buddies.setdefault(current_groupid, set()).add((current_host, current_port))
 
         else:
-            for node in NodeHandler.child_nodes.values():
-                node.write_message(msg)
-
+            # for node in NodeHandler.child_nodes.values():
+            #     node.write_message(msg)
+            forward(msg)
 
 
 # connect point from buddy node
@@ -464,13 +494,20 @@ class BuddyHandler(tornado.websocket.WebSocketHandler):
             # print(current_port, "available branches buddy on message", available_branches)
 
         else:
-            for node in BuddyHandler.buddy_nodes:
-                if node != self:
-                    node.write_message(msg)
+            # for node in NodeHandler.child_nodes.values():
+            #     if node != self:
+            #         node.write_message(msg)
 
-            for connector in BuddyConnector.buddy_nodes:
-                connector.conn.write_message(msg)
+            # for connector in NodeConnector.parent_nodes:
+            #     connector.conn.write_message(msg)
 
+            # for node in BuddyHandler.buddy_nodes:
+            #     if node != self:
+            #         node.write_message(msg)
+
+            # for connector in BuddyConnector.buddy_nodes:
+            #     connector.conn.write_message(msg)
+            forward(msg)
 
 # connector to buddy node
 class BuddyConnector(object):
@@ -576,10 +613,20 @@ class BuddyConnector(object):
             # print(current_port, "available branches buddy", available_branches)
 
         else:
-            for node in NodeHandler.child_nodes.values():
-                node.write_message(msg)
+            # for node in NodeHandler.child_nodes.values():
+            #     if node != self:
+            #         node.write_message(msg)
 
+            # for connector in NodeConnector.parent_nodes:
+            #     connector.conn.write_message(msg)
 
+            # for node in BuddyHandler.buddy_nodes:
+            #     if node != self:
+            #         node.write_message(msg)
+
+            # for connector in BuddyConnector.buddy_nodes:
+            #     connector.conn.write_message(msg)
+            forward(msg)
 
 # connector to control center
 control_node = None
