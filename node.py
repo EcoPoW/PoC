@@ -141,7 +141,6 @@ class NodeHandler(tornado.websocket.WebSocketHandler):
         self.from_host = self.get_argument("host")
         self.from_port = self.get_argument("port")
         self.remove_node = True
-        # print("branch", self.branch)
         if self.branch in NodeHandler.child_nodes:
             print(current_port, "force disconnect")
             self.remove_node = False
@@ -157,10 +156,8 @@ class NodeHandler(tornado.websocket.WebSocketHandler):
 
         if tuple([current_host, current_port, self.branch]) in available_branches:
             available_branches.remove(tuple([current_host, current_port, self.branch]))
-        # print(current_port, "available branches open", available_branches)
 
         message = json.dumps(["DISCARDED_BRANCHES", [[current_host, current_port, self.branch]], uuid.uuid4().hex])
-        # print(current_port, ["DISCARDED_BRANCHES", [[current_host, current_port, self.branch]]])
         forward(message)
 
         buddies = list(available_children_buddies.get(self.branch, set()))
@@ -188,8 +185,6 @@ class NodeHandler(tornado.websocket.WebSocketHandler):
         message = json.dumps(["DISCARDED_BRANCHES", [[self.from_host, self.from_port, self.branch+"0"], [self.from_host, self.from_port, self.branch+"1"]], uuid.uuid4().hex])
         forward(message)
 
-        # print(current_port, "available branches on_close", available_branches)
-
     @tornado.gen.coroutine
     def on_message(self, msg):
         global available_branches
@@ -197,22 +192,15 @@ class NodeHandler(tornado.websocket.WebSocketHandler):
         seq = json.loads(msg)
         print(current_port, "on message from child", seq)
         if seq[0] == "DISCARDED_BRANCHES":
-            # print(seq[1])
             for i in seq[1]:
                 branch_host, branch_port, branch = i
-                # print(branch_host, branch_port, branch)
                 if tuple([branch_host, branch_port, branch]) in available_branches:
                     available_branches.remove(tuple([branch_host, branch_port, branch]))
-
-            # print(current_port, "available branches on_message", available_branches)
 
         elif seq[0] == "AVAILABLE_BRANCHES":
             for i in seq[1]:
                 branch_host, branch_port, branch = i
-                # print(branch_host, branch_port, branch)
                 available_branches.add(tuple([branch_host, branch_port, branch]))
-
-            # print(current_port, "available branches on_message", available_branches)
 
         forward(msg)
 
@@ -253,8 +241,6 @@ class NodeConnector(object):
         available_branches.add(tuple([current_host, current_port, self.branch+"1"]))
 
         message = json.dumps(["AVAILABLE_BRANCHES", [[current_host, current_port, self.branch+"0"], [current_host, current_port, self.branch+"1"]], uuid.uuid4().hex])
-        # for i in NodeHandler.child_nodes.values():
-        #     i.write_message(msg)
         self.conn.write_message(message)
 
     def on_message(self, msg):
@@ -278,42 +264,32 @@ class NodeConnector(object):
         if seq[0] == "DISCARDED_BRANCHES":
             for i in seq[1]:
                 branch_host, branch_port, branch = i
-                # print(current_port, branch_host, branch_port, branch)
                 if tuple([branch_host, branch_port, branch]) in available_branches:
                     available_branches.remove(tuple([branch_host, branch_port, branch]))
 
             for node in NodeHandler.child_nodes.values():
                 node.write_message(msg)
 
-            # print(current_port, "available branches", available_branches)
-
         elif seq[0] == "AVAILABLE_BRANCHES":
             for i in seq[1]:
                 branch_host, branch_port, branch = i
-                # print(current_port, branch_host, branch_port, branch)
                 available_branches.add(tuple([branch_host, branch_port, branch]))
 
             for node in NodeHandler.child_nodes.values():
                 node.write_message(msg)
 
-            # print(current_port, "available branches", available_branches)
-
         elif seq[0] == "GROUP_ID":
-            # print(current_port, seq[1])
             current_groupid = seq[1]
             available_buddies = available_buddies.union(set([tuple(i) for i in seq[2]]))
             buddies_left = available_buddies - set([tuple([current_host, current_port])])
             buddies_left = buddies_left - set([(i.host, i.port) for i in BuddyConnector.buddy_nodes])
             buddies_left = buddies_left - set([(i.from_host, i.from_port) for i in BuddyHandler.buddy_nodes])
             for h, p in buddies_left:
-                # print(current_port, "buddy to connect", h, p)
                 BuddyConnector(h, p)
 
             available_children_buddies.setdefault(current_groupid, set()).add((current_host, current_port))
 
         else:
-            # for node in NodeHandler.child_nodes.values():
-            #     node.write_message(msg)
             forward(msg)
 
 
@@ -363,23 +339,16 @@ class BuddyHandler(tornado.websocket.WebSocketHandler):
         seq = json.loads(msg)
         print(current_port, "on message from buddy connector", seq)
         if seq[0] == "DISCARDED_BRANCHES":
-            # print(seq[1])
             for i in seq[1]:
                 branch_host, branch_port, branch = i
-                # print(branch_host, branch_port, branch)
                 if tuple([branch_host, branch_port, branch]) in available_branches:
                     available_branches.remove(tuple([branch_host, branch_port, branch]))
-
-            # print(current_port, "available branches buddy on message", available_branches)
 
         elif seq[0] == "AVAILABLE_BRANCHES":
             for i in seq[1]:
                 branch_host, branch_port, branch = i
-                # print(branch_host, branch_port, branch)
                 available_branches.add(tuple([branch_host, branch_port, branch]))
                 available_children_buddies.setdefault(branch[:-1], set()).add((branch_host, branch_port))
-
-            # print(current_port, "available branches buddy on message", available_branches)
 
         forward(msg)
 
@@ -398,7 +367,6 @@ class BuddyConnector(object):
         self.connect()
 
     def connect(self):
-        # print(current_port, self.ws_uri)
         tornado.websocket.websocket_connect(self.ws_uri,
                                 callback = self.on_connect,
                                 on_message_callback = self.on_message,
@@ -411,7 +379,6 @@ class BuddyConnector(object):
 
         try:
             self.conn = future.result()
-            # print(current_port, self.conn)
             if self not in BuddyConnector.buddy_nodes:
                 BuddyConnector.buddy_nodes.add(self)
         except:
@@ -429,13 +396,6 @@ class BuddyConnector(object):
         global current_branch
         global current_groupid
         if msg is None:
-            # print("reconnect2 ...")
-            # available_branches.remove(current_branch)
-            # available_branches = set([tuple(i) for i in branches])
-            # branches = list(available_branches)
-            # current_branch = tuple(branches[0])
-            # branch_host, branch_port, branch = current_branch
-            # self.ws_uri = "ws://%s:%s/node?branch=%s&from=%s" % (branch_host, branch_port, branch, branch_port)
             self.ws_uri = "ws://%s:%s/buddy?host=%s&port=%s" % (self.host, self.port, current_host, current_port)
             tornado.ioloop.IOLoop.instance().call_later(1.0, self.connect)
             return
@@ -445,26 +405,20 @@ class BuddyConnector(object):
         if seq[0] == "DISCARDED_BRANCHES":
             for i in seq[1]:
                 branch_host, branch_port, branch = i
-                # print(current_port, branch_host, branch_port, branch)
                 if tuple([branch_host, branch_port, branch]) in available_branches:
                     available_branches.remove(tuple([branch_host, branch_port, branch]))
 
             for node in NodeHandler.child_nodes.values():
                 node.write_message(msg)
 
-            # print(current_port, "available branches buddy", available_branches)
-
         elif seq[0] == "AVAILABLE_BRANCHES":
             for i in seq[1]:
                 branch_host, branch_port, branch = i
-                # print(current_port, branch_host, branch_port, branch)
                 available_branches.add(tuple([branch_host, branch_port, branch]))
                 available_children_buddies.setdefault(branch[:-1], set()).add((branch_host, branch_port))
 
             for node in NodeHandler.child_nodes.values():
                 node.write_message(msg)
-
-            # print(current_port, "available branches buddy", available_branches)
 
         elif seq[0] == "GROUP_ID_FOR_BUDDY":
             current_groupid = self.branch = seq[1]
@@ -476,16 +430,11 @@ class BuddyConnector(object):
             buddies_left = buddies_left - set([(i.host, i.port) for i in BuddyConnector.buddy_nodes])
             buddies_left = buddies_left - set([(i.from_host, i.from_port) for i in BuddyHandler.buddy_nodes])
             for h, p in buddies_left:
-                # print(current_port, "buddy to connect", h, p)
                 BuddyConnector(h, p)
-            # print(current_port, "available buddies", available_buddies)
 
-            # print(current_port, seq[1], self.conn)
             if self.conn is not None:
                 message = json.dumps(["AVAILABLE_BRANCHES", [[current_host, current_port, self.branch+"0"], [current_host, current_port, self.branch+"1"]], uuid.uuid4().hex])
                 self.conn.write_message(message)
-
-            # print(current_port, "available branches buddy", available_branches)
 
         else:
             forward(msg)
@@ -494,7 +443,6 @@ class BuddyConnector(object):
 control_node = None
 def on_connect(future):
     global control_node
-    # print("on connect")
 
     try:
         control_node = future.result()
@@ -516,14 +464,12 @@ def on_message(msg):
     seq = json.loads(msg)
     print(current_port, "node on message", seq)
     if seq[0] == "BOOTSTRAP_ADDRESS":
-        # print("BOOTSTRAP_ADDRESS", seq)
         if not seq[1]:
             # root node
             available_branches.add(tuple([current_host, current_port, "0"]))
             available_branches.add(tuple([current_host, current_port, "1"]))
             current_groupid = ""
 
-            # print(current_port, "available branches", available_branches)
         elif len(seq[1]) < NODE_REDUNDANCY:
             print(current_port, "connect to root as buddy", seq[1])
             BuddyConnector(*seq[1][0])
@@ -537,7 +483,6 @@ def on_message(msg):
             result = json.loads(response.body)
             branches = result["available_branches"]
             branches.sort(key=lambda l:len(l[2]))
-            # buddy = result["buddy"]
             print(current_port, "fetch result", [tuple(i) for i in branches])
 
             available_branches = set([tuple(i) for i in branches])
