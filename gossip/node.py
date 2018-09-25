@@ -15,13 +15,7 @@ import tornado.httpserver
 import tornado.httpclient
 import tornado.gen
 
-NODE_REDUNDANCY = 1
 
-# available_branches = set()
-# available_buddies = set()
-# available_children_buddies = dict()
-# current_branch = None
-# current_groupid = ""
 processed_message_ids = set()
 known_nodes = []
 
@@ -29,14 +23,18 @@ known_nodes = []
 def talk_to_random(msg):
     global known_nodes
 
+    if not known_nodes:
+        return
     node = known_nodes.pop(0)
-    print(current_port, node, msg)
+    # print(current_port, node)
     http_client = tornado.httpclient.AsyncHTTPClient()
     # try:
     response = yield http_client.fetch("http://%s:%s/peer" % tuple(node), method="POST", body=msg)
     # except Exception as e:
     #     print("Error: %s" % e)
     # result = json.loads(response.body)
+    # print(response.body)
+    tornado.ioloop.IOLoop.instance().call_later(0.1, talk_to_random, msg)
 
 
 class Application(tornado.web.Application):
@@ -53,7 +51,6 @@ class Application(tornado.web.Application):
 class BroadcastHandler(tornado.web.RequestHandler):
     @tornado.gen.coroutine
     def get(self):
-        # global current_groupid
         test_msg = ["TEST_MSG", time.time(), uuid.uuid4().hex]
 
         talk_to_random(json.dumps(test_msg))
@@ -97,15 +94,16 @@ class PeerHandler(tornado.web.RequestHandler):
 
     @tornado.gen.coroutine
     def post(self):
-        # global known_nodes
-        # node = known_nodes.pop(0)
-        # http_client = tornado.httpclient.AsyncHTTPClient()
-        # try:
-        #     response = yield http_client.fetch("http://%s:%s/peer" % node, method="POST")
-        # except Exception as e:
-        #     print("Error: %s" % e)
-        # result = json.loads(response.body)
-        talk_to_random(self.request.body)
+        global processed_message_ids
+
+        message = json.loads(self.request.body)
+        message_id = message[-1]
+        if message_id in processed_message_ids:
+            return
+        processed_message_ids.add(message_id)
+        control_node.write_message(json.dumps(["REPORT", current_host, current_port]))
+
+        tornado.ioloop.IOLoop.instance().call_later(0.1, talk_to_random, self.request.body)
 
 # connector to control center
 control_node = None
@@ -121,10 +119,7 @@ def on_connect(future):
 @tornado.gen.coroutine
 def on_message(msg):
     global control_node
-    # global available_branches
-    # global available_buddies
     global known_nodes
-    # global current_groupid
     if msg is None:
         tornado.ioloop.IOLoop.instance().call_later(1.0, connect)
         return
@@ -133,30 +128,6 @@ def on_message(msg):
     print(current_port, "node on message", seq)
     if seq[0] == "BOOTSTRAP_ADDRESS":
         known_nodes = seq[1]
-        # if not seq[1]:
-        #     # root node
-        #     available_branches.add(tuple([current_host, current_port, "0"]))
-        #     available_branches.add(tuple([current_host, current_port, "1"]))
-        #     current_groupid = ""
-
-        # elif len(seq[1]) < NODE_REDUNDANCY:
-        #     print(current_port, "connect to root as buddy", seq[1])
-        #     BuddyConnector(*seq[1][0])
-        # else:
-        #     print(current_port, "fetch", seq[1][0])
-        #     http_client = tornado.httpclient.AsyncHTTPClient()
-        #     try:
-        #         response = yield http_client.fetch("http://%s:%s/available_branches" % tuple(seq[1][0]))
-        #     except Exception as e:
-        #         print("Error: %s" % e)
-        #     result = json.loads(response.body)
-        #     branches = result["available_branches"]
-        #     branches.sort(key=lambda l:len(l[2]))
-        #     print(current_port, "fetch result", [tuple(i) for i in branches])
-
-        #     available_branches = set([tuple(i) for i in branches])
-        #     current_branch = tuple(branches[0])
-        #     NodeConnector(*branches[0])
 
 def connect():
     # print("\n\n")
@@ -167,7 +138,6 @@ def main():
     global current_host
     global current_port
     global control_port
-    # global available_buddies
 
     parser = argparse.ArgumentParser(description="node description")
     parser.add_argument('--port')
@@ -177,7 +147,6 @@ def main():
     current_host = "localhost"
     current_port = args.port
     control_port = args.control_port
-    # available_buddies.add(tuple([current_host, current_port]))
 
     server = Application()
     server.listen(current_port)

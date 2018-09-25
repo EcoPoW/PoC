@@ -15,6 +15,7 @@ import tornado.httpserver
 import tornado.gen
 
 incremental_port = 8001
+message_nodes = set()
 
 class Application(tornado.web.Application):
     def __init__(self):
@@ -38,11 +39,15 @@ class NewNodeHandler(tornado.web.RequestHandler):
 
 class FollowFriendsHandler(tornado.web.RequestHandler):
     def get(self):
+        global message_nodes
+
+        message_nodes = set()
         known_addresses_list = list(ControlHandler.known_addresses)
         # known_addresses_list.sort(key=lambda l:int(l[1]))
+        count = int(self.get_argument("n", "3"))
         for i in ControlHandler.known_addresses.values():
             random.shuffle(known_addresses_list)
-            i.write_message(json.dumps(["BOOTSTRAP_ADDRESS", known_addresses_list[:10]]))
+            i.write_message(json.dumps(["BOOTSTRAP_ADDRESS", known_addresses_list[:count]]))
 
 
 class DashboardHandler(tornado.web.RequestHandler):
@@ -75,15 +80,19 @@ class ControlHandler(tornado.websocket.WebSocketHandler):
 
     @tornado.gen.coroutine
     def on_message(self, msg):
+        global message_nodes
+
         seq = json.loads(msg)
-        print("control on message", seq)
+        # print("control on message", seq)
         if seq[0] == u"ADDRESS":
             self.addr = tuple(seq[1:3])
             # print(self.addr)
             ControlHandler.known_addresses[self.addr] = self
             # print(ControlHandler.known_addresses)
-        # elif seq[0]:
-        #     pass
+        elif seq[0] == u"REPORT":
+            addr = tuple(seq[1:3])
+            message_nodes.add(addr)
+            print("REPORT", len(message_nodes))
 
 
 def main():
