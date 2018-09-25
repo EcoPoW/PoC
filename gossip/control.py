@@ -20,6 +20,7 @@ class Application(tornado.web.Application):
     def __init__(self):
         handlers = [(r"/control", ControlHandler),
                     (r"/new_node", NewNodeHandler),
+                    (r"/follow_friends", FollowFriendsHandler),
                     (r"/dashboard", DashboardHandler),
                     ]
         settings = {"debug":True}
@@ -29,9 +30,20 @@ class Application(tornado.web.Application):
 class NewNodeHandler(tornado.web.RequestHandler):
     def get(self):
         global incremental_port
-        subprocess.Popen(["python", "node.py", "--port=%s"%incremental_port, "--control_port=8000"])
+        count = int(self.get_argument("n", "1"))
+        for i in range(count):
+            subprocess.Popen(["python", "node.py", "--port=%s"%incremental_port, "--control_port=8000"])
+            incremental_port += 1
         self.finish("new node %s\n" % incremental_port)
-        incremental_port += 1
+
+class FollowFriendsHandler(tornado.web.RequestHandler):
+    def get(self):
+        known_addresses_list = list(ControlHandler.known_addresses)
+        # known_addresses_list.sort(key=lambda l:int(l[1]))
+        for i in ControlHandler.known_addresses.values():
+            random.shuffle(known_addresses_list)
+            i.write_message(json.dumps(["BOOTSTRAP_ADDRESS", known_addresses_list[:10]]))
+
 
 class DashboardHandler(tornado.web.RequestHandler):
     def get(self):
@@ -68,14 +80,10 @@ class ControlHandler(tornado.websocket.WebSocketHandler):
         if seq[0] == u"ADDRESS":
             self.addr = tuple(seq[1:3])
             # print(self.addr)
-            known_addresses_list = list(ControlHandler.known_addresses)
-            random.shuffle(known_addresses_list)
-            # known_addresses_list.sort(key=lambda l:int(l[1]))
-            self.write_message(json.dumps(["BOOTSTRAP_ADDRESS", known_addresses_list[:3]]))
             ControlHandler.known_addresses[self.addr] = self
             # print(ControlHandler.known_addresses)
-        elif seq[0]:
-            pass
+        # elif seq[0]:
+        #     pass
 
 
 def main():

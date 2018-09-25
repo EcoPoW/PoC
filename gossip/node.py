@@ -17,12 +17,27 @@ import tornado.gen
 
 NODE_REDUNDANCY = 1
 
-available_branches = set()
-available_buddies = set()
-available_children_buddies = dict()
-current_branch = None
-current_groupid = ""
+# available_branches = set()
+# available_buddies = set()
+# available_children_buddies = dict()
+# current_branch = None
+# current_groupid = ""
 processed_message_ids = set()
+known_nodes = []
+
+@tornado.gen.coroutine
+def talk_to_random(msg):
+    global known_nodes
+
+    node = known_nodes.pop(0)
+    print(current_port, node, msg)
+    http_client = tornado.httpclient.AsyncHTTPClient()
+    # try:
+    response = yield http_client.fetch("http://%s:%s/peer" % tuple(node), method="POST", body=msg)
+    # except Exception as e:
+    #     print("Error: %s" % e)
+    # result = json.loads(response.body)
+
 
 class Application(tornado.web.Application):
     def __init__(self):
@@ -36,11 +51,12 @@ class Application(tornado.web.Application):
 
 
 class BroadcastHandler(tornado.web.RequestHandler):
+    @tornado.gen.coroutine
     def get(self):
-        global current_groupid
-        test_msg = ["TEST_MSG", current_groupid, time.time(), uuid.uuid4().hex]
+        # global current_groupid
+        test_msg = ["TEST_MSG", time.time(), uuid.uuid4().hex]
 
-        forward(json.dumps(test_msg))
+        talk_to_random(json.dumps(test_msg))
         self.finish({"test_msg": test_msg})
 
 class DashboardHandler(tornado.web.RequestHandler):
@@ -77,11 +93,19 @@ class DashboardHandler(tornado.web.RequestHandler):
 # connect point from buddy node
 class PeerHandler(tornado.web.RequestHandler):
     def get(self):
-        pass
+        self.post(self)
 
+    @tornado.gen.coroutine
     def post(self):
-        pass
-
+        # global known_nodes
+        # node = known_nodes.pop(0)
+        # http_client = tornado.httpclient.AsyncHTTPClient()
+        # try:
+        #     response = yield http_client.fetch("http://%s:%s/peer" % node, method="POST")
+        # except Exception as e:
+        #     print("Error: %s" % e)
+        # result = json.loads(response.body)
+        talk_to_random(self.request.body)
 
 # connector to control center
 control_node = None
@@ -97,10 +121,10 @@ def on_connect(future):
 @tornado.gen.coroutine
 def on_message(msg):
     global control_node
-    global available_branches
-    global available_buddies
-    global current_branch
-    global current_groupid
+    # global available_branches
+    # global available_buddies
+    global known_nodes
+    # global current_groupid
     if msg is None:
         tornado.ioloop.IOLoop.instance().call_later(1.0, connect)
         return
@@ -108,11 +132,12 @@ def on_message(msg):
     seq = json.loads(msg)
     print(current_port, "node on message", seq)
     if seq[0] == "BOOTSTRAP_ADDRESS":
-        if not seq[1]:
-            # root node
-            available_branches.add(tuple([current_host, current_port, "0"]))
-            available_branches.add(tuple([current_host, current_port, "1"]))
-            current_groupid = ""
+        known_nodes = seq[1]
+        # if not seq[1]:
+        #     # root node
+        #     available_branches.add(tuple([current_host, current_port, "0"]))
+        #     available_branches.add(tuple([current_host, current_port, "1"]))
+        #     current_groupid = ""
 
         # elif len(seq[1]) < NODE_REDUNDANCY:
         #     print(current_port, "connect to root as buddy", seq[1])
@@ -134,7 +159,7 @@ def on_message(msg):
         #     NodeConnector(*branches[0])
 
 def connect():
-    print("\n\n")
+    # print("\n\n")
     print(current_port, "connect control", control_port)
     tornado.websocket.websocket_connect("ws://localhost:%s/control" % control_port, callback=on_connect, on_message_callback=on_message)
 
@@ -142,7 +167,7 @@ def main():
     global current_host
     global current_port
     global control_port
-    global available_buddies
+    # global available_buddies
 
     parser = argparse.ArgumentParser(description="node description")
     parser.add_argument('--port')
@@ -152,7 +177,7 @@ def main():
     current_host = "localhost"
     current_port = args.port
     control_port = args.control_port
-    available_buddies.add(tuple([current_host, current_port]))
+    # available_buddies.add(tuple([current_host, current_port]))
 
     server = Application()
     server.listen(current_port)
