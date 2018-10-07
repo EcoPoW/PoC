@@ -1,4 +1,4 @@
-from __future__ import print_function
+# from __future__ import print_function
 
 import time
 import socket
@@ -15,48 +15,16 @@ import tornado.httpserver
 import tornado.httpclient
 import tornado.gen
 
+import setting
+import tree
+import miner
 import leader
-
-NODE_REDUNDANCY = 3
-
-
-processed_message_ids = set()
-
-def forward(msg):
-    global processed_message_ids
-
-    msg_id = json.loads(msg)[-1]
-    if msg_id in processed_message_ids:
-        return
-    processed_message_ids.add(msg_id)
-
-    for child_node in NodeHandler.child_nodes.values():
-        child_node.write_message(msg)
-
-    for parent_connector in NodeConnector.parent_nodes:
-        parent_connector.conn.write_message(msg)
-
-    for buddy_node in BuddyHandler.buddy_nodes:
-        buddy_node.write_message(msg)
-
-    for buddy_connector in BuddyConnector.buddy_nodes:
-        buddy_connector.conn.write_message(msg)
 
 
 class Application(tornado.web.Application):
-    current_host = None
-    current_port = None
-    current_branch = None
-    current_groupid = ""
-
-    available_branches = set()
-    available_buddies = set()
-    available_children_buddies = dict()
-
-
     def __init__(self):
-        handlers = [(r"/node", NodeHandler),
-                    (r"/buddy", BuddyHandler),
+        handlers = [(r"/node", tree.NodeHandler),
+                    (r"/buddy", tree.BuddyHandler),
                     (r"/available_branches", AvailableBranchesHandler),
                     (r"/disconnect", DisconnectHandler),
                     (r"/broadcast", BroadcastHandler),
@@ -69,15 +37,15 @@ class Application(tornado.web.Application):
 
 class AvailableBranchesHandler(tornado.web.RequestHandler):
     def get(self):
-        branches = list(Application.available_branches)
+        branches = list(tree.available_branches)
 
         # parents = []
         # for node in NodeConnector.parent_nodes:
         #     parents.append([node.host, node.port])
         self.finish({"available_branches": branches,
-                     "buddy":len(Application.available_buddies),
+                     "buddy":len(tree.available_buddies),
                      #"parents": parents,
-                     "group_id": Application.current_groupid})
+                     "group_id": tree.current_groupid})
 
 class DisconnectHandler(tornado.web.RequestHandler):
     def get(self):
@@ -94,24 +62,24 @@ class DisconnectHandler(tornado.web.RequestHandler):
 
 class BroadcastHandler(tornado.web.RequestHandler):
     def get(self):
-        test_msg = ["TEST_MSG", Application.current_groupid, time.time(), uuid.uuid4().hex]
+        test_msg = ["TEST_MSG", setting.current_groupid, time.time(), uuid.uuid4().hex]
 
-        forward(json.dumps(test_msg))
+        forward(test_msg)
         self.finish({"test_msg": test_msg})
 
 class DashboardHandler(tornado.web.RequestHandler):
     def get(self):
-        branches = list(Application.available_branches)
+        branches = list(setting.available_branches)
         branches.sort(key=lambda l:len(l[2]))
 
         parents = []
-        self.write("<br>current_groupid: %s <br>" % Application.current_groupid)
+        self.write("<br>current_groupid: %s <br>" % setting.current_groupid)
         self.write("<br>available_branches:<br>")
         for branch in branches:
             self.write("%s %s %s <br>" %branch)
 
-        self.write("<br>available_buddies: %s<br>" % len(Application.available_buddies))
-        for buddy in Application.available_buddies:
+        self.write("<br>available_buddies: %s<br>" % len(setting.available_buddies))
+        for buddy in setting.available_buddies:
             self.write("%s %s <br>" % buddy)
 
         self.write("<br>parent_nodes:<br>")
@@ -119,372 +87,20 @@ class DashboardHandler(tornado.web.RequestHandler):
             self.write("%s %s<br>" %(node.host, node.port))
 
         self.write("<br>available_children_buddies:<br>")
-        for k,vs in Application.available_children_buddies.items():
+        for k,vs in setting.available_children_buddies.items():
             self.write("%s<br>" % k)
             for v1,v2 in vs:
                 self.write("%s %s<br>" % (v1,v2))
 
         self.finish()
 
-
-# connect point from child node
-class NodeHandler(tornado.websocket.WebSocketHandler):
-    child_nodes = dict()
-
-    def check_origin(self, origin):
-        return True
-
-    def open(self):
-        self.branch = self.get_argument("branch")
-        self.from_host = self.get_argument("host")
-        self.from_port = self.get_argument("port")
-        self.remove_node = True
-        if self.branch in NodeHandler.child_nodes:
-            print(Application.current_port, "force disconnect")
-            self.remove_node = False
-            self.close()
-
-            message = json.dumps(["DISCARDED_BRANCHES", [[Application.current_host, Application.current_port, self.branch]], uuid.uuid4().hex])
-            forward(message)
-            return
-
-        print(Application.current_port, "child connected branch", self.branch)
-        if self.branch not in NodeHandler.child_nodes:
-            NodeHandler.child_nodes[self.branch] = self
-
-        if tuple([Application.current_host, Application.current_port, self.branch]) in Application.available_branches:
-            Application.available_branches.remove(tuple([Application.current_host, Application.current_port, self.branch]))
-
-        message = json.dumps(["DISCARDED_BRANCHES", [[Application.current_host, Application.current_port, self.branch]], uuid.uuid4().hex])
-        forward(message)
-
-        buddies = list(Application.available_children_buddies.get(self.branch, set()))
-        message = json.dumps(["GROUP_ID", self.branch, buddies, uuid.uuid4().hex])
-        self.write_message(message)
-        Application.available_children_buddies.setdefault(self.branch, set()).add((self.from_host, self.from_port))
-
-    def on_close(self):
-        print(Application.current_port, "child disconnected from parent")
-        if self.branch in NodeHandler.child_nodes and self.remove_node:
-            del NodeHandler.child_nodes[self.branch]
-        self.remove_node = True
-
-        Application.available_branches.add(tuple([Application.current_host, Application.current_port, self.branch]))
-
-        message = json.dumps(["AVAILABLE_BRANCHES", [[Application.current_host, Application.current_port, self.branch]], uuid.uuid4().hex])
-        forward(message)
-
-        if tuple([self.from_host, self.from_port, self.branch+"0"]) in Application.available_branches:
-            Application.available_branches.remove(tuple([self.from_host, self.from_port, self.branch+"0"]))
-        if tuple([self.from_host, self.from_port, self.branch+"1"]) in Application.available_branches:
-            Application.available_branches.remove(tuple([self.from_host, self.from_port, self.branch+"1"]))
-
-        message = json.dumps(["DISCARDED_BRANCHES", [[self.from_host, self.from_port, self.branch+"0"], [self.from_host, self.from_port, self.branch+"1"]], uuid.uuid4().hex])
-        forward(message)
-
-    @tornado.gen.coroutine
-    def on_message(self, msg):
-        seq = json.loads(msg)
-        print(Application.current_port, "on message from child", seq)
-        if seq[0] == "DISCARDED_BRANCHES":
-            for i in seq[1]:
-                branch_host, branch_port, branch = i
-                if tuple([branch_host, branch_port, branch]) in Application.available_branches:
-                    Application.available_branches.remove(tuple([branch_host, branch_port, branch]))
-
-        elif seq[0] == "AVAILABLE_BRANCHES":
-            for i in seq[1]:
-                branch_host, branch_port, branch = i
-                Application.available_branches.add(tuple([branch_host, branch_port, branch]))
-
-        forward(msg)
-
-
-# connector to parent node
-class NodeConnector(object):
-    """Websocket Client"""
-    parent_nodes = set()
-
-    def __init__(self, to_host, to_port, branch):
-        self.host = to_host
-        self.port = to_port
-        self.branch = branch
-        self.ws_uri = "ws://%s:%s/node?branch=%s&host=%s&port=%s" % (self.host, self.port, self.branch, Application.current_host, Application.current_port)
-        self.conn = None
-        self.connect()
-
-    def connect(self):
-        tornado.websocket.websocket_connect(self.ws_uri,
-                                callback = self.on_connect,
-                                on_message_callback = self.on_message,
-                                connect_timeout = 10.0)
-
-    def on_connect(self, future):
-        print(Application.current_port, "node connect")
-
-        # try:
-        self.conn = future.result()
-        if self not in NodeConnector.parent_nodes:
-            NodeConnector.parent_nodes.add(self)
-        # except:
-        #     print(Application.current_port, "reconnect1 ...")
-        #     tornado.ioloop.IOLoop.instance().call_later(1.0, self.connect)
-
-        Application.available_branches.add(tuple([Application.current_host, Application.current_port, self.branch+"0"]))
-        Application.available_branches.add(tuple([Application.current_host, Application.current_port, self.branch+"1"]))
-
-        message = json.dumps(["AVAILABLE_BRANCHES", [[Application.current_host, Application.current_port, self.branch+"0"], [Application.current_host, Application.current_port, self.branch+"1"]], uuid.uuid4().hex])
-        self.conn.write_message(message)
-
-    def on_message(self, msg):
-        if msg is None:
-            # print("reconnect2 ...")
-            Application.available_branches.remove(Application.current_branch)
-            # Application.available_branches = set([tuple(i) for i in branches])
-            branches = list(Application.available_branches)
-            Application.current_branch = tuple(branches[0])
-            branch_host, branch_port, branch = Application.current_branch
-            self.ws_uri = "ws://%s:%s/node?branch=%s&host=%s&port=%s" % (branch_host, branch_port, branch, Application.current_host, Application.current_port)
-            tornado.ioloop.IOLoop.instance().call_later(1.0, self.connect)
-            return
-
-        seq = json.loads(msg)
-        print(Application.current_port, "on message from parent", seq)
-        if seq[0] == "DISCARDED_BRANCHES":
-            for i in seq[1]:
-                branch_host, branch_port, branch = i
-                if tuple([branch_host, branch_port, branch]) in Application.available_branches:
-                    Application.available_branches.remove(tuple([branch_host, branch_port, branch]))
-
-            for node in NodeHandler.child_nodes.values():
-                node.write_message(msg)
-
-        elif seq[0] == "AVAILABLE_BRANCHES":
-            for i in seq[1]:
-                branch_host, branch_port, branch = i
-                Application.available_branches.add(tuple([branch_host, branch_port, branch]))
-
-            for node in NodeHandler.child_nodes.values():
-                node.write_message(msg)
-
-        elif seq[0] == "GROUP_ID":
-            Application.current_groupid = seq[1]
-            Application.available_buddies = Application.available_buddies.union(set([tuple(i) for i in seq[2]]))
-            buddies_left = Application.available_buddies - set([tuple([Application.current_host, Application.current_port])])
-            buddies_left = buddies_left - set([(i.host, i.port) for i in BuddyConnector.buddy_nodes])
-            buddies_left = buddies_left - set([(i.from_host, i.from_port) for i in BuddyHandler.buddy_nodes])
-            for h, p in buddies_left:
-                BuddyConnector(h, p)
-
-            Application.available_children_buddies.setdefault(Application.current_groupid, set()).add((Application.current_host, Application.current_port))
-
-        else:
-            forward(msg)
-
-
-# connect point from buddy node
-class BuddyHandler(tornado.websocket.WebSocketHandler):
-    buddy_nodes = set()
-
-    def check_origin(self, origin):
-        return True
-
-    def open(self):
-        self.from_host = self.get_argument("host")
-        self.from_port = self.get_argument("port")
-        self.remove_node = True
-        if False: #temp disable force disconnect
-            print(Application.current_port, "buddy force disconnect")
-            self.remove_node = False
-            self.close()
-            return
-
-        print(Application.current_port, "buddy connected")
-        if self not in BuddyHandler.buddy_nodes:
-            BuddyHandler.buddy_nodes.add(self)
-
-        Application.available_buddies.add(tuple([self.from_host, self.from_port]))
-        message = json.dumps(["GROUP_ID_FOR_BUDDY", Application.current_groupid, list(Application.available_buddies), uuid.uuid4().hex])
-        self.write_message(message)
-
-        # maybe it's wrong, we should tell buddy all the available branches existing
-        message = json.dumps(["AVAILABLE_BRANCHES", [[Application.current_host, Application.current_port, Application.current_groupid+"0"], [Application.current_host, Application.current_port, Application.current_groupid+"1"]], uuid.uuid4().hex])
-        self.write_message(message)
-
-    def on_close(self):
-        print(Application.current_port, "buddy disconnected")
-        if self in BuddyHandler.buddy_nodes and self.remove_node:
-            BuddyHandler.buddy_nodes.remove(self)
-        self.remove_node = True
-
-    @tornado.gen.coroutine
-    def on_message(self, msg):
-        seq = json.loads(msg)
-        print(Application.current_port, "on message from buddy connector", seq)
-        if seq[0] == "DISCARDED_BRANCHES":
-            for i in seq[1]:
-                branch_host, branch_port, branch = i
-                if tuple([branch_host, branch_port, branch]) in Application.available_branches:
-                    Application.available_branches.remove(tuple([branch_host, branch_port, branch]))
-
-        elif seq[0] == "AVAILABLE_BRANCHES":
-            for i in seq[1]:
-                branch_host, branch_port, branch = i
-                Application.available_branches.add(tuple([branch_host, branch_port, branch]))
-                Application.available_children_buddies.setdefault(branch[:-1], set()).add((branch_host, branch_port))
-
-        forward(msg)
-
-
-# connector to buddy node
-class BuddyConnector(object):
-    """Websocket Client"""
-    buddy_nodes = set()
-
-    def __init__(self, to_host, to_port):
-        self.host = to_host
-        self.port = to_port
-        self.ws_uri = "ws://%s:%s/buddy?host=%s&port=%s" % (self.host, self.port, Application.current_host, Application.current_port)
-        self.branch = None
-        self.conn = None
-        self.connect()
-
-    def connect(self):
-        tornado.websocket.websocket_connect(self.ws_uri,
-                                callback = self.on_connect,
-                                on_message_callback = self.on_message,
-                                connect_timeout = 1000.0)
-
-    def on_connect(self, future):
-        print(Application.current_port, "buddy connect")
-
-        try:
-            self.conn = future.result()
-            if self not in BuddyConnector.buddy_nodes:
-                BuddyConnector.buddy_nodes.add(self)
-        except:
-            print(Application.current_port, "reconnect buddy ...")
-            tornado.ioloop.IOLoop.instance().call_later(1.0, self.connect)
-
-        if self.branch is not None:
-            message = json.dumps(["AVAILABLE_BRANCHES", [[Application.current_host, Application.current_port, self.branch+"0"], [Application.current_host, Application.current_port, self.branch+"1"]], uuid.uuid4().hex])
-            self.conn.write_message(message)
-
-    def on_message(self, msg):
-        if msg is None:
-            self.ws_uri = "ws://%s:%s/buddy?host=%s&port=%s" % (self.host, self.port, Application.current_host, Application.current_port)
-            tornado.ioloop.IOLoop.instance().call_later(1.0, self.connect)
-            return
-
-        seq = json.loads(msg)
-        print(Application.current_port, "on message from buddy", seq)
-        if seq[0] == "DISCARDED_BRANCHES":
-            for i in seq[1]:
-                branch_host, branch_port, branch = i
-                if tuple([branch_host, branch_port, branch]) in Application.available_branches:
-                    Application.available_branches.remove(tuple([branch_host, branch_port, branch]))
-
-            for node in NodeHandler.child_nodes.values():
-                node.write_message(msg)
-
-        elif seq[0] == "AVAILABLE_BRANCHES":
-            for i in seq[1]:
-                branch_host, branch_port, branch = i
-                Application.available_branches.add(tuple([branch_host, branch_port, branch]))
-                Application.available_children_buddies.setdefault(branch[:-1], set()).add((branch_host, branch_port))
-
-            for node in NodeHandler.child_nodes.values():
-                node.write_message(msg)
-
-        elif seq[0] == "GROUP_ID_FOR_BUDDY":
-            Application.current_groupid = self.branch = seq[1]
-            Application.available_branches.add(tuple([Application.current_host, Application.current_port, Application.current_groupid+"0"]))
-            Application.available_branches.add(tuple([Application.current_host, Application.current_port, Application.current_groupid+"1"]))
-
-            Application.available_buddies = Application.available_buddies.union(set([tuple(i) for i in seq[2]]))
-            buddies_left = Application.available_buddies - set([tuple([Application.current_host, Application.current_port])])
-            buddies_left = buddies_left - set([(i.host, i.port) for i in BuddyConnector.buddy_nodes])
-            buddies_left = buddies_left - set([(i.from_host, i.from_port) for i in BuddyHandler.buddy_nodes])
-            for h, p in buddies_left:
-                BuddyConnector(h, p)
-
-            if self.conn is not None:
-                message = json.dumps(["AVAILABLE_BRANCHES", [[Application.current_host, Application.current_port, self.branch+"0"], [Application.current_host, Application.current_port, self.branch+"1"]], uuid.uuid4().hex])
-                self.conn.write_message(message)
-
-        else:
-            forward(msg)
-
-# connector to control center
-control_node = None
-def on_connect(future):
-    global control_node
-
-    try:
-        control_node = future.result()
-        control_node.write_message(json.dumps(["ADDRESS", Application.current_host, Application.current_port]))
-    except:
-        tornado.ioloop.IOLoop.instance().call_later(1.0, connect)
-
-@tornado.gen.coroutine
-def on_message(msg):
-    if msg is None:
-        tornado.ioloop.IOLoop.instance().call_later(1.0, connect)
-        return
-
-    seq = json.loads(msg)
-    print(Application.current_port, "node on message", seq)
-    if seq[0] == "BOOTSTRAP_ADDRESS":
-        if not seq[1]:
-            # root node
-            Application.available_branches.add(tuple([Application.current_host, Application.current_port, "0"]))
-            Application.available_branches.add(tuple([Application.current_host, Application.current_port, "1"]))
-            Application.current_groupid = ""
-
-        elif len(seq[1]) < NODE_REDUNDANCY:
-            print(Application.current_port, "connect to root as buddy", seq[1])
-            BuddyConnector(*seq[1][0])
-        else:
-            print(Application.current_port, "fetch", seq[1][0])
-            http_client = tornado.httpclient.AsyncHTTPClient()
-            try:
-                response = yield http_client.fetch("http://%s:%s/available_branches" % tuple(seq[1][0]))
-            except Exception as e:
-                print("Error: %s" % e)
-            result = json.loads(response.body)
-            branches = result["available_branches"]
-            branches.sort(key=lambda l:len(l[2]))
-            print(Application.current_port, "fetch result", [tuple(i) for i in branches])
-
-            Application.available_branches = set([tuple(i) for i in branches])
-            Application.current_branch = tuple(branches[0])
-            NodeConnector(*branches[0])
-
-def connect():
-    print("\n\n")
-    print(Application.current_port, "connect control", control_port)
-    tornado.websocket.websocket_connect("ws://localhost:%s/control" % control_port, callback=on_connect, on_message_callback=on_message)
-
 def main():
-    global control_port
-
-    parser = argparse.ArgumentParser(description="node description")
-    parser.add_argument('--port')
-    parser.add_argument('--control_port')
-
-    args = parser.parse_args()
-    Application.current_host = "localhost"
-    Application.current_port = args.port
-    control_port = args.control_port
-    Application.available_buddies.add(tuple([Application.current_host, Application.current_port]))
-
-    leader.main()
+    tree.main()
 
     server = Application()
-    server.listen(Application.current_port)
-    tornado.ioloop.IOLoop.instance().add_callback(connect)
+    server.listen(tree.current_port)
+    tornado.ioloop.IOLoop.instance().add_callback(tree.connect)
     tornado.ioloop.IOLoop.instance().start()
-
 
 if __name__ == '__main__':
     main()

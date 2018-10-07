@@ -13,10 +13,13 @@ import tornado.ioloop
 import tornado.httpclient
 import tornado.gen
 
+import setting
+import tree
 import node
 
 def main():
-    print(node.Application.current_port, node.NODE_REDUNDANCY)
+    # print(tree.current_port, setting.NODE_REDUNDANCY)
+    pass
 
 if __name__ == '__main__':
     # main()
