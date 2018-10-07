@@ -18,27 +18,21 @@ import miner
 import leader
 
 
-global control_port
 control_port = 0
 
-global current_branch
-global current_groupid
 current_host = None
 current_port = None
 current_branch = None
 current_groupid = ""
 
-global available_branches
-global available_buddies
-global available_children_buddies
 available_branches = set()
 available_buddies = set()
 available_children_buddies = dict()
 
-global processed_message_ids
 processed_message_ids = set()
 
 def forward(seq):
+    # global processed_message_ids
 
     msg_id = seq[-1]
     if msg_id in processed_message_ids:
@@ -93,7 +87,7 @@ class NodeHandler(tornado.websocket.WebSocketHandler):
 
         buddies = list(available_children_buddies.get(self.branch, set()))
         message = ["GROUP_ID", self.branch, buddies, uuid.uuid4().hex]
-        self.write_message(message)
+        self.write_message(json.dumps(message))
         available_children_buddies.setdefault(self.branch, set()).add((self.from_host, self.from_port))
 
     def on_close(self):
@@ -129,6 +123,9 @@ class NodeHandler(tornado.websocket.WebSocketHandler):
             for i in seq[1]:
                 branch_host, branch_port, branch = i
                 available_branches.add(tuple([branch_host, branch_port, branch]))
+
+        elif seq[0] == "NEW_BLOCK":
+            miner.new_block(seq)
 
         forward(seq)
 
@@ -170,6 +167,7 @@ class NodeConnector(object):
         self.conn.write_message(json.dumps(message))
 
     def on_message(self, msg):
+        global current_branch
         if msg is None:
             # print("reconnect2 ...")
             if current_branch in available_branches:
@@ -190,16 +188,16 @@ class NodeConnector(object):
                 if tuple([branch_host, branch_port, branch]) in available_branches:
                     available_branches.remove(tuple([branch_host, branch_port, branch]))
 
-            for node in NodeHandler.child_nodes.values():
-                node.write_message(msg)
+            # for node in NodeHandler.child_nodes.values():
+            #     node.write_message(msg)
 
         elif seq[0] == "AVAILABLE_BRANCHES":
             for i in seq[1]:
                 branch_host, branch_port, branch = i
                 available_branches.add(tuple([branch_host, branch_port, branch]))
 
-            for node in NodeHandler.child_nodes.values():
-                node.write_message(msg)
+            # for node in NodeHandler.child_nodes.values():
+            #     node.write_message(msg)
 
         elif seq[0] == "GROUP_ID":
             current_groupid = seq[1]
@@ -211,9 +209,13 @@ class NodeConnector(object):
                 BuddyConnector(h, p)
 
             available_children_buddies.setdefault(current_groupid, set()).add((current_host, current_port))
+            return
 
-        else:
-            forward(seq)
+        elif seq[0] == "NEW_BLOCK":
+            miner.new_block(seq)
+
+        # else:
+        forward(seq)
 
 
 # connect point from buddy node
@@ -266,6 +268,9 @@ class BuddyHandler(tornado.websocket.WebSocketHandler):
                 branch_host, branch_port, branch = i
                 available_branches.add(tuple([branch_host, branch_port, branch]))
                 available_children_buddies.setdefault(branch[:-1], set()).add((branch_host, branch_port))
+
+        elif seq[0] == "NEW_BLOCK":
+            miner.new_block(seq)
 
         forward(seq)
 
@@ -322,8 +327,8 @@ class BuddyConnector(object):
                 if tuple([branch_host, branch_port, branch]) in available_branches:
                     available_branches.remove(tuple([branch_host, branch_port, branch]))
 
-            for node in NodeHandler.child_nodes.values():
-                node.write_message(msg)
+            # for node in NodeHandler.child_nodes.values():
+            #     node.write_message(msg)
 
         elif seq[0] == "AVAILABLE_BRANCHES":
             for i in seq[1]:
@@ -331,8 +336,8 @@ class BuddyConnector(object):
                 available_branches.add(tuple([branch_host, branch_port, branch]))
                 available_children_buddies.setdefault(branch[:-1], set()).add((branch_host, branch_port))
 
-            for node in NodeHandler.child_nodes.values():
-                node.write_message(msg)
+            # for node in NodeHandler.child_nodes.values():
+            #     node.write_message(msg)
 
         elif seq[0] == "GROUP_ID_FOR_BUDDY":
             current_groupid = self.branch = seq[1]
@@ -349,9 +354,13 @@ class BuddyConnector(object):
             if self.conn is not None:
                 message = ["AVAILABLE_BRANCHES", [[current_host, current_port, self.branch+"0"], [current_host, current_port, self.branch+"1"]], uuid.uuid4().hex]
                 self.conn.write_message(json.dumps(message))
+            return
 
-        else:
-            forward(seq)
+        elif seq[0] == "NEW_BLOCK":
+            miner.new_block(seq)
+
+        # else:
+        forward(seq)
 
 # connector to control center
 control_node = None

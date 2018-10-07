@@ -19,7 +19,7 @@ import setting
 import tree
 import miner
 import leader
-
+import database
 
 class Application(tornado.web.Application):
     def __init__(self):
@@ -96,6 +96,7 @@ class DashboardHandler(tornado.web.RequestHandler):
 
 def main():
     tree.main()
+    database.main()
 
     server = Application()
     server.listen(tree.current_port)
