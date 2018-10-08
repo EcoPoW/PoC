@@ -60,10 +60,6 @@ def longest_chain(root_hash = '0'*64):
             longest = i
     return longest
 
-def get_difficulty(difficulty):
-    certain_value = "0" * difficulty
-    certain_value = certain_value + 'f'*(64-len(certain_value))
-    return certain_value
 
 nonce = 0
 def mining():
@@ -73,15 +69,15 @@ def mining():
     # print(longest)
     if longest:
         longest_hash, difficulty = longest[-1].hash, longest[-1].difficulty
-        if len(longest) * 60 > longest[-1].timestamp - longest[0].timestamp:
-            new_difficulty = min(64, difficulty + 1)
+        if len(longest) * 6 > longest[-1].timestamp - longest[0].timestamp:
+            new_difficulty = min(255, difficulty + 1)
         else:
             new_difficulty = max(1, difficulty - 1)
     else:
         longest_hash, difficulty, new_difficulty = "0"*64, 1, 1
 
     block_hash = hashlib.sha256(('last.data' + longest_hash + str(tree.current_port) + str(nonce)).encode('utf8')).hexdigest()
-    if block_hash < get_difficulty(difficulty):
+    if int(block_hash, 16) < int("1" * (256-difficulty), 2):
         if longest:
             print(len(longest), longest[-1].timestamp, longest[0].timestamp, longest[-1].timestamp - longest[0].timestamp)
         print(nonce, block_hash)
