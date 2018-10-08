@@ -39,7 +39,7 @@ def forward(seq):
         return
     processed_message_ids.add(msg_id)
     msg = json.dumps(seq)
-    print("DDDDDD", len(processed_message_ids), len(NodeHandler.child_nodes.values()), len(NodeConnector.parent_nodes), len(BuddyHandler.buddy_nodes), len(BuddyConnector.buddy_nodes))
+    # print("DDDDDD", len(processed_message_ids), len(NodeHandler.child_nodes.values()), len(NodeConnector.parent_nodes), len(BuddyHandler.buddy_nodes), len(BuddyConnector.buddy_nodes))
 
     for child_node in NodeHandler.child_nodes.values():
         child_node.write_message(msg)
@@ -167,6 +167,7 @@ class NodeConnector(object):
         self.conn.write_message(json.dumps(message))
 
     def on_message(self, msg):
+        global available_buddies
         global current_branch
         if msg is None:
             # print("reconnect2 ...")

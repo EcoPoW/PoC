@@ -29,7 +29,7 @@ class Application(tornado.web.Application):
 class NewNodeHandler(tornado.web.RequestHandler):
     def get(self):
         global incremental_port
-        subprocess.Popen(["python", "node.py", "--port=%s"%incremental_port, "--control_port=8000"])
+        subprocess.Popen(["python3", "node.py", "--port=%s"%incremental_port, "--control_port=8000"])
         self.finish("new node %s\n" % incremental_port)
         incremental_port += 1
 
@@ -82,7 +82,7 @@ def main():
     global port, control_port
 
     parser = argparse.ArgumentParser(description="control description")
-    parser.add_argument('--control_port')
+    parser.add_argument('--control_port', default=8000)
 
     args = parser.parse_args()
     control_port = args.control_port

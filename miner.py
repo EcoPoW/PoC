@@ -15,20 +15,21 @@ import tornado.ioloop
 import tornado.httpclient
 import tornado.gen
 
-import torndb
 
-import setting
+# import setting
 import tree
 import node
+import database
 
 
 def longest_chain(root_hash = '0'*64):
-    roots = setting.db.query("SELECT * FROM "+tree.current_port+"chain WHERE prev_hash = %s ORDER BY nonce", root_hash)
+    roots = database.connection.query("SELECT * FROM "+tree.current_port+"chain WHERE prev_hash = %s ORDER BY nonce", root_hash)
 
     chains = []
     prev_hashs = []
     for root in roots:
-        chains.append([root.hash])
+        # chains.append([root.hash])
+        chains.append([root])
         prev_hashs.append(root.hash)
 
     while True:
@@ -37,13 +38,14 @@ def longest_chain(root_hash = '0'*64):
         else:
             break
 
-        leaves = setting.db.query("SELECT * FROM "+tree.current_port+"chain WHERE prev_hash = %s ORDER BY nonce", prev_hash)
+        leaves = database.connection.query("SELECT * FROM "+tree.current_port+"chain WHERE prev_hash = %s ORDER BY nonce", prev_hash)
         if len(leaves) > 0:
             for leaf in leaves:
                 for c in chains:
-                    if c[-1] == prev_hash:
+                    if c[-1].hash == prev_hash:
                         chain = copy.copy(c)
-                        chain.append(leaf.hash)
+                        # chain.append(leaf.hash)
+                        chain.append(leaf)
                         chains.append(chain)
                         break
                 if leaf.hash not in prev_hashs and leaf.hash:
@@ -58,8 +60,10 @@ def longest_chain(root_hash = '0'*64):
             longest = i
     return longest
 
-certain_value = "0"
-certain_value = certain_value + 'f'*(64-len(certain_value))
+def get_difficulty(difficulty):
+    certain_value = "0" * difficulty
+    certain_value = certain_value + 'f'*(64-len(certain_value))
+    return certain_value
 
 nonce = 0
 def mining():
@@ -67,15 +71,24 @@ def mining():
 
     longest = longest_chain()
     # print(longest)
-    longest_hash = longest[-1] if longest else "0"*64
+    if longest:
+        longest_hash, difficulty = longest[-1].hash, longest[-1].difficulty
+        if len(longest) * 60 > longest[-1].timestamp - longest[0].timestamp:
+            new_difficulty = min(64, difficulty + 1)
+        else:
+            new_difficulty = max(1, difficulty - 1)
+    else:
+        longest_hash, difficulty, new_difficulty = "0"*64, 1, 1
 
     block_hash = hashlib.sha256(('last.data' + longest_hash + str(tree.current_port) + str(nonce)).encode('utf8')).hexdigest()
-    if block_hash < certain_value:
+    if block_hash < get_difficulty(difficulty):
+        if longest:
+            print(len(longest), longest[-1].timestamp, longest[0].timestamp, longest[-1].timestamp - longest[0].timestamp)
         print(nonce, block_hash)
         # db.execute("UPDATE chain SET hash = %s, prev_hash = %s, nonce = %s, wallet_address = %s WHERE id = %s", block_hash, longest_hash, nonce, wallet_address, last.id)
-        # setting.db.execute("INSERT INTO "+tree.current_port+"chain (hash, prev_hash, nonce, wallet_address, data) VALUES (%s, %s, %s, %s, '')", block_hash, longest_hash, nonce, str(tree.current_port))
+        # database.connection.execute("INSERT INTO "+tree.current_port+"chain (hash, prev_hash, nonce, difficulty, identity, timestamp, data) VALUES (%s, %s, %s, %s, '')", block_hash, longest_hash, nonce, difficulty, str(tree.current_port))
 
-        message = ["NEW_BLOCK", block_hash, longest_hash, nonce, str(tree.current_port), time.time(), uuid.uuid4().hex]
+        message = ["NEW_BLOCK", block_hash, longest_hash, nonce, new_difficulty, str(tree.current_port), int(time.time()), uuid.uuid4().hex]
         tree.forward(message)
         print(tree.current_port, "mining %s" % nonce, block_hash)
         nonce = 0
@@ -83,12 +96,11 @@ def mining():
     nonce += 1
 
 def new_block(seq):
-    _, block_hash, longest_hash, nonce, wallet_address, timestamp, msg_id = seq
-    setting.db.execute("INSERT INTO "+tree.current_port+"chain (hash, prev_hash, nonce, wallet_address, data) VALUES (%s, %s, %s, %s, '')", block_hash, longest_hash, nonce, wallet_address)
+    msg_header, block_hash, longest_hash, nonce, difficulty, identity, timestamp, msg_id = seq
+    database.connection.execute("INSERT INTO "+tree.current_port+"chain (hash, prev_hash, nonce, difficulty, identity, timestamp, data) VALUES (%s, %s, %s, %s, %s, %s, '')", block_hash, longest_hash, nonce, difficulty, identity, timestamp)
 
 def main():
     print(tree.current_port, "miner")
-    setting.db.execute("TRUNCATE "+tree.current_port+"chain")
 
     mining_task = tornado.ioloop.PeriodicCallback(mining, 1000) # , jitter=0.5
     mining_task.start()
