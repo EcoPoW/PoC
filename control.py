@@ -29,9 +29,11 @@ class Application(tornado.web.Application):
 class NewNodeHandler(tornado.web.RequestHandler):
     def get(self):
         global incremental_port
-        subprocess.Popen(["python3", "node.py", "--port=%s"%incremental_port, "--control_port=8000"])
+        count = int(self.get_argument("n", "1"))
+        for i in range(count):
+            subprocess.Popen(["python3", "node.py", "--port=%s"%incremental_port, "--control_port=8000"])
+            incremental_port += 1
         self.finish("new node %s\n" % incremental_port)
-        incremental_port += 1
 
 class DashboardHandler(tornado.web.RequestHandler):
     def get(self):

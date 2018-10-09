@@ -25,6 +25,7 @@ class Application(tornado.web.Application):
     def __init__(self):
         handlers = [(r"/node", tree.NodeHandler),
                     (r"/buddy", tree.BuddyHandler),
+                    (r"/leader", leader.LeaderHandler),
                     (r"/available_branches", AvailableBranchesHandler),
                     (r"/disconnect", DisconnectHandler),
                     (r"/broadcast", BroadcastHandler),
@@ -97,6 +98,8 @@ class DashboardHandler(tornado.web.RequestHandler):
 def main():
     tree.main()
     database.main()
+    # leader.main()
+    tornado.ioloop.IOLoop.instance().call_later(10, miner.main)
 
     server = Application()
     server.listen(tree.current_port)

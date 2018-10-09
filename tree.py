@@ -432,8 +432,5 @@ def main():
     control_port = args.control_port
     available_buddies.add(tuple([current_host, current_port]))
 
-    miner.main()
-    leader.main()
-
 if __name__ == '__main__':
     print("run python node.py pls")
