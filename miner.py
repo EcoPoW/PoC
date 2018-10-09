@@ -68,28 +68,33 @@ def mining():
     longest = longest_chain()
     # print(longest)
     if longest:
-        longest_hash, difficulty = longest[-1].hash, longest[-1].difficulty
-        if len(longest) * 6 > longest[-1].timestamp - longest[0].timestamp:
+        longest_hash = longest[-1].hash
+        difficulty = longest[-1].difficulty
+        recent = longest[-10:]
+        print(recent)
+        if len(recent) * 6 > recent[-1].timestamp - recent[0].timestamp:
             new_difficulty = min(255, difficulty + 1)
         else:
             new_difficulty = max(1, difficulty - 1)
     else:
         longest_hash, difficulty, new_difficulty = "0"*64, 1, 1
 
-    block_hash = hashlib.sha256(('last.data' + longest_hash + str(tree.current_port) + str(nonce)).encode('utf8')).hexdigest()
-    if int(block_hash, 16) < int("1" * (256-difficulty), 2):
-        if longest:
-            print(len(longest), longest[-1].timestamp, longest[0].timestamp, longest[-1].timestamp - longest[0].timestamp)
-        print(nonce, block_hash)
-        # db.execute("UPDATE chain SET hash = %s, prev_hash = %s, nonce = %s, wallet_address = %s WHERE id = %s", block_hash, longest_hash, nonce, wallet_address, last.id)
-        # database.connection.execute("INSERT INTO "+tree.current_port+"chain (hash, prev_hash, nonce, difficulty, identity, timestamp, data) VALUES (%s, %s, %s, %s, '')", block_hash, longest_hash, nonce, difficulty, str(tree.current_port))
+    for i in range(100):
+        block_hash = hashlib.sha256(('last.data' + longest_hash + str(tree.current_port) + str(nonce)).encode('utf8')).hexdigest()
+        if int(block_hash, 16) < int("1" * (256-difficulty), 2):
+            if longest:
+                print(len(longest), longest[-1].timestamp, longest[0].timestamp, longest[-1].timestamp - longest[0].timestamp)
+            print(nonce, block_hash)
+            # db.execute("UPDATE chain SET hash = %s, prev_hash = %s, nonce = %s, wallet_address = %s WHERE id = %s", block_hash, longest_hash, nonce, wallet_address, last.id)
+            # database.connection.execute("INSERT INTO "+tree.current_port+"chain (hash, prev_hash, nonce, difficulty, identity, timestamp, data) VALUES (%s, %s, %s, %s, '')", block_hash, longest_hash, nonce, difficulty, str(tree.current_port))
 
-        message = ["NEW_BLOCK", block_hash, longest_hash, nonce, new_difficulty, str(tree.current_port), int(time.time()), uuid.uuid4().hex]
-        tree.forward(message)
-        print(tree.current_port, "mining %s" % nonce, block_hash)
-        nonce = 0
+            message = ["NEW_BLOCK", block_hash, longest_hash, nonce, new_difficulty, str(tree.current_port), int(time.time()), uuid.uuid4().hex]
+            tree.forward(message)
+            print(tree.current_port, "mining %s" % nonce, block_hash)
+            nonce = 0
+            break
 
-    nonce += 1
+        nonce += 1
 
 def new_block(seq):
     msg_header, block_hash, longest_hash, nonce, difficulty, identity, timestamp, msg_id = seq
