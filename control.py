@@ -1,5 +1,6 @@
 from __future__ import print_function
 
+import os
 import subprocess
 import time
 import socket
@@ -18,11 +19,15 @@ incremental_port = 8000
 
 class Application(tornado.web.Application):
     def __init__(self):
+        settings = {
+            "debug":True,
+            "static_path": os.path.join(os.path.dirname(__file__), "static"),
+        }
         handlers = [(r"/control", ControlHandler),
                     (r"/new_node", NewNodeHandler),
                     (r"/dashboard", DashboardHandler),
+                    (r"/static/(.*)", tornado.web.StaticFileHandler, dict(path=settings['static_path'])),
                     ]
-        settings = {"debug":True}
 
         tornado.web.Application.__init__(self, handlers, **settings)
 
