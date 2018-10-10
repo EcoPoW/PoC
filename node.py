@@ -63,35 +63,43 @@ class DisconnectHandler(tornado.web.RequestHandler):
 
 class BroadcastHandler(tornado.web.RequestHandler):
     def get(self):
-        test_msg = ["TEST_MSG", setting.current_groupid, time.time(), uuid.uuid4().hex]
+        test_msg = ["TEST_MSG", tree.current_groupid, time.time(), uuid.uuid4().hex]
 
         forward(test_msg)
         self.finish({"test_msg": test_msg})
 
 class DashboardHandler(tornado.web.RequestHandler):
     def get(self):
-        branches = list(setting.available_branches)
+        branches = list(tree.available_branches)
         branches.sort(key=lambda l:len(l[2]))
 
         parents = []
-        self.write("<br>current_groupid: %s <br>" % setting.current_groupid)
+        self.write("<br>current_groupid: %s <br>" % tree.current_groupid)
         self.write("<br>available_branches:<br>")
         for branch in branches:
             self.write("%s %s %s <br>" %branch)
 
-        self.write("<br>available_buddies: %s<br>" % len(setting.available_buddies))
-        for buddy in setting.available_buddies:
+        self.write("<br>available_buddies: %s<br>" % len(tree.available_buddies))
+        for buddy in tree.available_buddies:
             self.write("%s %s <br>" % buddy)
 
         self.write("<br>parent_nodes:<br>")
-        for node in NodeConnector.parent_nodes:
+        for node in tree.NodeConnector.parent_nodes:
             self.write("%s %s<br>" %(node.host, node.port))
 
         self.write("<br>available_children_buddies:<br>")
-        for k,vs in setting.available_children_buddies.items():
+        for k,vs in tree.available_children_buddies.items():
             self.write("%s<br>" % k)
             for v1,v2 in vs:
                 self.write("%s %s<br>" % (v1,v2))
+
+        self.write("<br>LeaderHandler:<br>")
+        for node in leader.LeaderHandler.leader_nodes:
+            self.write("%s %s<br>" %(node.from_host, node.from_port))
+
+        self.write("<br>LeaderConnector:<br>")
+        for node in leader.LeaderConnector.leader_nodes:
+            self.write("%s %s<br>" %(node.host, node.port))
 
         self.finish()
 
