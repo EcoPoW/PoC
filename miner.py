@@ -82,10 +82,11 @@ def mining():
             if not leader.working:
                 other_leaders = [("localhost", i.identity) for i in longest[-6:-3] if i.identity != tree.current_port]
                 leader.start(other_leaders)
-            leader.working = True
+            # leader.working = True
             return # if avoid election while mining
         else:
-            leader.working = False
+            leader.stop()
+            # leader.working = False
 
         if tree.current_port in [i.identity for i in recent]:
             return
