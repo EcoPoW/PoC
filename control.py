@@ -14,7 +14,7 @@ import tornado.options
 import tornado.httpserver
 import tornado.gen
 
-incremental_port = 8001
+incremental_port = 8000
 
 class Application(tornado.web.Application):
     def __init__(self):
@@ -31,9 +31,10 @@ class NewNodeHandler(tornado.web.RequestHandler):
         global incremental_port
         count = int(self.get_argument("n", "1"))
         for i in range(count):
-            subprocess.Popen(["python3", "node.py", "--port=%s"%incremental_port, "--control_port=8000"])
             incremental_port += 1
-        self.finish("new node %s\n" % incremental_port)
+            subprocess.Popen(["python3", "node.py", "--port=%s"%incremental_port, "--control_port=8000"])
+            self.write("new node %s\n" % incremental_port)
+        self.finish()
 
 class DashboardHandler(tornado.web.RequestHandler):
     def get(self):

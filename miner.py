@@ -98,13 +98,12 @@ def mining():
         if int(block_hash, 16) < int("1" * (256-difficulty), 2):
             if longest:
                 print(len(longest), longest[-1].timestamp, longest[0].timestamp, longest[-1].timestamp - longest[0].timestamp)
-            print(nonce, block_hash)
             # db.execute("UPDATE chain SET hash = %s, prev_hash = %s, nonce = %s, wallet_address = %s WHERE id = %s", block_hash, longest_hash, nonce, wallet_address, last.id)
             # database.connection.execute("INSERT INTO "+tree.current_port+"chain (hash, prev_hash, nonce, difficulty, identity, timestamp, data) VALUES (%s, %s, %s, %s, '')", block_hash, longest_hash, nonce, difficulty, str(tree.current_port))
 
             message = ["NEW_BLOCK", block_hash, longest_hash, nonce, new_difficulty, str(tree.current_port), int(time.time()), uuid.uuid4().hex]
             tree.forward(message)
-            print(tree.current_port, "mining %s" % nonce, block_hash)
+            print(tree.current_port, "mining", nonce, block_hash)
             nonce = 0
             break
 
