@@ -41,7 +41,7 @@ class AvailableBranchesHandler(tornado.web.RequestHandler):
         branches = list(tree.available_branches)
 
         # parents = []
-        # for node in NodeConnector.parent_nodes:
+        # for node in tree.NodeConnector.parent_nodes:
         #     parents.append([node.host, node.port])
         self.finish({"available_branches": branches,
                      "buddy":len(tree.available_buddies),
@@ -50,13 +50,13 @@ class AvailableBranchesHandler(tornado.web.RequestHandler):
 
 class DisconnectHandler(tornado.web.RequestHandler):
     def get(self):
-        for connector in NodeConnector.parent_nodes:
+        while tree.NodeConnector.parent_nodes:
             # connector.remove_node = False
-            connector.conn.close()
+            tree.NodeConnector.parent_nodes.pop().close()
 
-        for connector in BuddyConnector.buddy_nodes:
+        while tree.BuddyConnector.buddy_nodes:
             # connector.remove_node = False
-            connector.conn.close()
+            tree.BuddyConnector.buddy_nodes.pop().close()
 
         self.finish({})
         tornado.ioloop.IOLoop.instance().stop()

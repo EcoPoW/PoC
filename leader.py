@@ -19,6 +19,28 @@ import node
 
 working = False
 
+def forward(seq):
+    # global processed_message_ids
+
+    # msg_id = seq[-1]
+    # if msg_id in processed_message_ids:
+    #     return
+    # processed_message_ids.add(msg_id)
+    msg = json.dumps(seq)
+
+    # for child_node in NodeHandler.child_nodes.values():
+    #     child_node.write_message(msg)
+
+    # for parent_connector in NodeConnector.parent_nodes:
+    #     parent_connector.conn.write_message(msg)
+
+    for leader_node in LeaderHandler.leader_nodes:
+        leader_node.write_message(msg)
+
+    for leader_connector in LeaderConnector.leader_nodes:
+        leader_connector.conn.write_message(msg)
+
+
 # connect point from leader node
 class LeaderHandler(tornado.websocket.WebSocketHandler):
     leader_nodes = set()
@@ -29,12 +51,12 @@ class LeaderHandler(tornado.websocket.WebSocketHandler):
     def open(self):
         self.from_host = self.get_argument("host")
         self.from_port = self.get_argument("port")
-        self.remove_node = True
-        if False: #temp disable force disconnect
-            print(tree.current_port, "leader force disconnect")
-            self.remove_node = False
-            self.close()
-            return
+        # self.remove_node = True
+        # if False: #temp disable force disconnect
+        #     print(tree.current_port, "leader force disconnect")
+        #     self.remove_node = False
+        #     self.close()
+        #     return
 
         print(tree.current_port, "leader connected")
         if self not in LeaderHandler.leader_nodes:
@@ -50,9 +72,9 @@ class LeaderHandler(tornado.websocket.WebSocketHandler):
 
     def on_close(self):
         print(tree.current_port, "leader disconnected")
-        if self in LeaderHandler.leader_nodes and self.remove_node:
+        if self in LeaderHandler.leader_nodes: # and self.remove_node
             LeaderHandler.leader_nodes.remove(self)
-        self.remove_node = True
+        # self.remove_node = True
 
     @tornado.gen.coroutine
     def on_message(self, msg):
@@ -94,6 +116,11 @@ class LeaderConnector(object):
                                 callback = self.on_connect,
                                 on_message_callback = self.on_message,
                                 connect_timeout = 1000.0)
+
+    def close(self):
+        if self in LeaderConnector.leader_nodes:
+            LeaderConnector.leader_nodes.remove(self)
+        self.conn.close()
 
     def on_connect(self, future):
         print(tree.current_port, "leader connect")
@@ -168,6 +195,12 @@ def mining():
     # print(tree.current_port, working)
     if working:
         tornado.ioloop.IOLoop.instance().call_later(1, mining)
+    else:
+        # time to kill all the connected connectors in handler
+        while LeaderHandler.leader_nodes:
+            LeaderHandler.leader_nodes.pop().close()
+        while LeaderConnector.leader_nodes:
+            LeaderConnector.leader_nodes.pop().close()
 
 def start(other_leaders):
     print(tree.current_port, [i[1] for i in other_leaders])
