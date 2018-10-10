@@ -6,6 +6,7 @@ import subprocess
 import argparse
 import json
 import uuid
+import functools
 
 import tornado.web
 import tornado.websocket
@@ -148,6 +149,11 @@ class NodeConnector(object):
                                 callback = self.on_connect,
                                 on_message_callback = self.on_message,
                                 connect_timeout = 10.0)
+
+    def close(self):
+        if self in NodeConnector.parent_nodes:
+            NodeConnector.parent_nodes.remove(self)
+        self.conn.close()
 
     def on_connect(self, future):
         print(current_port, "node connect")
@@ -295,6 +301,11 @@ class BuddyConnector(object):
                                 on_message_callback = self.on_message,
                                 connect_timeout = 1000.0)
 
+    def close(self):
+        if self in BuddyConnector.buddy_nodes:
+            BuddyConnector.buddy_nodes.remove(self)
+        self.conn.close()
+
     def on_connect(self, future):
         print(current_port, "buddy connect")
 
@@ -375,10 +386,32 @@ def on_connect(future):
         tornado.ioloop.IOLoop.instance().call_later(1.0, connect)
 
 @tornado.gen.coroutine
+def bootstrap(addr):
+    global available_branches
+
+    print(current_port, "fetch", addr)
+    http_client = tornado.httpclient.AsyncHTTPClient()
+    try:
+        response = yield http_client.fetch("http://%s:%s/available_branches" % tuple(addr))
+    except Exception as e:
+        print("Error: %s" % e)
+    result = json.loads(response.body)
+    branches = result["available_branches"]
+    branches.sort(key=lambda l:len(l[2]))
+    print(current_port, "fetch result", [tuple(i) for i in branches])
+
+    if branches:
+        available_branches = set([tuple(i) for i in branches])
+        current_branch = tuple(branches[0])
+        NodeConnector(*branches[0])
+    else:
+        tornado.ioloop.IOLoop.instance().call_later(1.0, functools.partial(bootstrap, addr))
+
+@tornado.gen.coroutine
 def on_message(msg):
     global available_branches
-    global available_buddies
-    global available_children_buddies
+    # global available_buddies
+    # global available_children_buddies
 
     if msg is None:
         tornado.ioloop.IOLoop.instance().call_later(1.0, connect)
@@ -396,21 +429,9 @@ def on_message(msg):
         elif len(seq[1]) < setting.NODE_REDUNDANCY:
             print(current_port, "connect to root as buddy", seq[1])
             BuddyConnector(*seq[1][0])
-        else:
-            print(current_port, "fetch", seq[1][0])
-            http_client = tornado.httpclient.AsyncHTTPClient()
-            try:
-                response = yield http_client.fetch("http://%s:%s/available_branches" % tuple(seq[1][0]))
-            except Exception as e:
-                print("Error: %s" % e)
-            result = json.loads(response.body)
-            branches = result["available_branches"]
-            branches.sort(key=lambda l:len(l[2]))
-            print(current_port, "fetch result", [tuple(i) for i in branches])
 
-            available_branches = set([tuple(i) for i in branches])
-            current_branch = tuple(branches[0])
-            NodeConnector(*branches[0])
+        else:
+            bootstrap(seq[1][0])
 
 def connect():
     print("\n\n")
