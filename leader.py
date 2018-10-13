@@ -1,9 +1,6 @@
 from __future__ import print_function
 
 import time
-import socket
-import subprocess
-import argparse
 import json
 import uuid
 
@@ -27,12 +24,6 @@ def forward(seq):
     #     return
     # processed_message_ids.add(msg_id)
     msg = json.dumps(seq)
-
-    # for child_node in NodeHandler.child_nodes.values():
-    #     child_node.write_message(msg)
-
-    # for parent_connector in NodeConnector.parent_nodes:
-    #     parent_connector.conn.write_message(msg)
 
     for leader_node in LeaderHandler.leader_nodes:
         leader_node.write_message(msg)
@@ -62,14 +53,6 @@ class LeaderHandler(tornado.websocket.WebSocketHandler):
         if self not in LeaderHandler.leader_nodes:
             LeaderHandler.leader_nodes.add(self)
 
-        # available_buddies.add(tuple([self.from_host, self.from_port]))
-        # message = ["GROUP_ID_FOR_BUDDY", tree.current_groupid, list(available_buddies), uuid.uuid4().hex]
-        # self.write_message(json.dumps(message))
-
-        # maybe it's wrong, we should tell leader all the available branches existing
-        # message = ["AVAILABLE_BRANCHES", [[tree.current_host, tree.current_port, tree.current_groupid+"0"], [tree.current_host, tree.current_port, tree.current_groupid+"1"]], uuid.uuid4().hex]
-        # self.write_message(json.dumps(message))
-
     def on_close(self):
         print(tree.current_port, "leader disconnected")
         if self in LeaderHandler.leader_nodes: # and self.remove_node
@@ -80,17 +63,6 @@ class LeaderHandler(tornado.websocket.WebSocketHandler):
     def on_message(self, msg):
         seq = json.loads(msg)
         print(tree.current_port, "on message from leader connector", seq)
-        # if seq[0] == "DISCARDED_BRANCHES":
-        #     for i in seq[1]:
-        #         branch_host, branch_port, branch = i
-        #         if tuple([branch_host, branch_port, branch]) in available_branches:
-        #             available_branches.remove(tuple([branch_host, branch_port, branch]))
-
-        # elif seq[0] == "AVAILABLE_BRANCHES":
-        #     for i in seq[1]:
-        #         branch_host, branch_port, branch = i
-        #         available_branches.add(tuple([branch_host, branch_port, branch]))
-        #         available_children_buddies.setdefault(branch[:-1], set()).add((branch_host, branch_port))
 
         if seq[0] == "NEW_BLOCK":
             miner.new_block(seq)
@@ -135,15 +107,8 @@ class LeaderConnector(object):
             print(tree.current_port, "reconnect leader on connect ...")
             tornado.ioloop.IOLoop.instance().call_later(1.0, self.connect)
 
-        # if self.branch is not None:
-        #     message = ["AVAILABLE_BRANCHES", [[tree.current_host, tree.current_port, self.branch+"0"], [tree.current_host, tree.current_port, self.branch+"1"]], uuid.uuid4().hex]
-        #     self.conn.write_message(json.dumps(message))
 
     def on_message(self, msg):
-        # global available_branches
-        # global available_buddies
-        # global available_children_buddies
-
         if msg is None:
             if not self.remove_node:
                 print(tree.current_port, "reconnect leader on message...")
@@ -153,40 +118,6 @@ class LeaderConnector(object):
 
         seq = json.loads(msg)
         print(tree.current_port, "on message from leader", seq)
-        # if seq[0] == "DISCARDED_BRANCHES":
-        #     for i in seq[1]:
-        #         branch_host, branch_port, branch = i
-        #         if tuple([branch_host, branch_port, branch]) in available_branches:
-        #             available_branches.remove(tuple([branch_host, branch_port, branch]))
-
-        #     # for node in NodeHandler.child_nodes.values():
-        #     #     node.write_message(msg)
-
-        # elif seq[0] == "AVAILABLE_BRANCHES":
-        #     for i in seq[1]:
-        #         branch_host, branch_port, branch = i
-        #         available_branches.add(tuple([branch_host, branch_port, branch]))
-        #         available_children_buddies.setdefault(branch[:-1], set()).add((branch_host, branch_port))
-
-        #     # for node in NodeHandler.child_nodes.values():
-        #     #     node.write_message(msg)
-
-        # if seq[0] == "GROUP_ID_FOR_BUDDY":
-        #     current_groupid = self.branch = seq[1]
-        #     available_branches.add(tuple([tree.current_host, tree.current_port, tree.current_groupid+"0"]))
-        #     available_branches.add(tuple([tree.current_host, tree.current_port, tree.current_groupid+"1"]))
-
-        #     available_buddies = available_buddies.union(set([tuple(i) for i in seq[2]]))
-        #     buddies_left = available_buddies - set([tuple([tree.current_host, tree.current_port])])
-        #     buddies_left = buddies_left - set([(i.host, i.port) for i in LeaderConnector.leader_nodes])
-        #     buddies_left = buddies_left - set([(i.from_host, i.from_port) for i in LeaderHandler.leader_nodes])
-        #     for h, p in buddies_left:
-        #         LeaderConnector(h, p)
-
-        #     if self.conn is not None:
-        #         message = ["AVAILABLE_BRANCHES", [[tree.current_host, tree.current_port, self.branch+"0"], [tree.current_host, tree.current_port, self.branch+"1"]], uuid.uuid4().hex]
-        #         self.conn.write_message(json.dumps(message))
-        #     return
 
         if seq[0] == "NEW_BLOCK":
             miner.new_block(seq)
@@ -199,29 +130,26 @@ def mining():
     # print(tree.current_port, working)
     if working:
         tornado.ioloop.IOLoop.instance().call_later(1, mining)
-    # else:
-    #     # time to kill all the connected connectors in handler
-    #     while LeaderHandler.leader_nodes:
-    #         LeaderHandler.leader_nodes.pop().close()
-    #     while LeaderConnector.leader_nodes:
-    #         LeaderConnector.leader_nodes.pop().close()
 
-def start(leaders):
+
+previous_leaders = set()
+def update(leaders):
+    global previous_leaders
     global working
 
-    for other_leader_addr in leaders:
-        connected = set([(i.host, i.port) for i in LeaderConnector.leader_nodes]) |\
-                    set([(i.from_host, i.from_port) for i in LeaderHandler.leader_nodes]) |\
-                    set([(tree.current_host, tree.current_port)])
-        if other_leader_addr not in connected:
-            print(tree.current_port, other_leader_addr, connected)
-            LeaderConnector(*other_leader_addr)
+    if ("localhost", tree.current_port) in leaders - previous_leaders:
+        for other_leader_addr in leaders:
+            connected = set([(i.host, i.port) for i in LeaderConnector.leader_nodes]) |\
+                        set([(i.from_host, i.from_port) for i in LeaderHandler.leader_nodes]) |\
+                        set([(tree.current_host, tree.current_port)])
+            if other_leader_addr not in connected:
+                print(tree.current_port, other_leader_addr, connected)
+                LeaderConnector(*other_leader_addr)
 
-    if not working:
-        tornado.ioloop.IOLoop.instance().add_callback(mining)
-    working = True
+                if not working:
+                    tornado.ioloop.IOLoop.instance().add_callback(mining)
+                working = True
 
-def disconnect(leaders):
     nodes_to_close = set()
     for node in LeaderConnector.leader_nodes:
         if (node.host, node.port) not in leaders:
@@ -231,13 +159,14 @@ def disconnect(leaders):
     while nodes_to_close:
         nodes_to_close.pop().close()
 
-def stop():
-    global working
-    working = False
 
-    while LeaderConnector.leader_nodes:
-        LeaderConnector.leader_nodes.pop().close()
+    if ("localhost", tree.current_port) not in leaders:
+        working = False
 
+        while LeaderConnector.leader_nodes:
+            LeaderConnector.leader_nodes.pop().close()
+
+    previous_leaders = leaders
 
 
 if __name__ == '__main__':

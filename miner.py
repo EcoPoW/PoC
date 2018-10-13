@@ -1,9 +1,6 @@
 from __future__ import print_function
 
 import time
-import socket
-import subprocess
-import argparse
 import json
 import uuid
 import hashlib
@@ -100,10 +97,7 @@ def mining():
 
         nonce += 1
 
-previous_leaders = set()
 def new_block(seq):
-    global previous_leaders
-
     msg_header, block_hash, longest_hash, nonce, difficulty, identity, timestamp, msg_id = seq
     try:
         database.connection.execute("INSERT INTO "+tree.current_port+"chain (hash, prev_hash, nonce, difficulty, identity, timestamp, data) VALUES (%s, %s, %s, %s, %s, %s, '')", block_hash, longest_hash, nonce, difficulty, identity, timestamp)
@@ -111,25 +105,9 @@ def new_block(seq):
         pass
 
     longest = longest_chain()
-    # print(longest)
     if longest:
-        # longest_hash = longest[-1].hash
-        # difficulty = longest[-1].difficulty
-        # recent = longest[-3:]
-        # # print(recent)
-        # if len(recent) * setting.BLOCK_INTERVAL_SECONDS > recent[-1].timestamp - recent[0].timestamp:
-        #     new_difficulty = min(255, difficulty + 1)
-        # else:
-        #     new_difficulty = max(1, difficulty - 1)
-
         leaders = set([("localhost", i.identity) for i in longest[-6:-3]])
-        if ("localhost", tree.current_port) in leaders - previous_leaders:
-            leader.start(leaders)
-            # return # if avoid election while mining
-        leader.disconnect(leaders)
-        if ("localhost", tree.current_port) not in leaders:
-            leader.stop()
-        previous_leaders = leaders
+        leader.update(leaders)
 
 def main():
     print(tree.current_port, "miner")
