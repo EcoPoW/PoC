@@ -100,7 +100,10 @@ def mining():
 
         nonce += 1
 
+previous_leaders = set()
 def new_block(seq):
+    global previous_leaders
+
     msg_header, block_hash, longest_hash, nonce, difficulty, identity, timestamp, msg_id = seq
     try:
         database.connection.execute("INSERT INTO "+tree.current_port+"chain (hash, prev_hash, nonce, difficulty, identity, timestamp, data) VALUES (%s, %s, %s, %s, %s, %s, '')", block_hash, longest_hash, nonce, difficulty, identity, timestamp)
@@ -119,13 +122,14 @@ def new_block(seq):
         # else:
         #     new_difficulty = max(1, difficulty - 1)
 
-        leaders = [("localhost", i.identity) for i in longest[-6:-3]]
-        if tree.current_port in [i.identity for i in longest[-6:-3]]:
-            # if not leader.working:
+        leaders = set([("localhost", i.identity) for i in longest[-6:-3]])
+        if ("localhost", tree.current_port) in leaders - previous_leaders:
             leader.start(leaders)
             # return # if avoid election while mining
-        else:
-            leader.stop(leaders)
+        leader.disconnect(leaders)
+        if ("localhost", tree.current_port) not in leaders:
+            leader.stop()
+        previous_leaders = leaders
 
 def main():
     print(tree.current_port, "miner")

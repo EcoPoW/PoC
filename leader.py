@@ -209,15 +209,6 @@ def mining():
 def start(leaders):
     global working
 
-    nodes_to_close = set()
-    for node in LeaderConnector.leader_nodes:
-        if (node.host, node.port) not in leaders:
-            nodes_to_close.add(node)
-
-    print(tree.current_port, "nodes_to_close", len(nodes_to_close))
-    while nodes_to_close:
-        nodes_to_close.pop().close()
-
     for other_leader_addr in leaders:
         connected = set([(i.host, i.port) for i in LeaderConnector.leader_nodes]) |\
                     set([(i.from_host, i.from_port) for i in LeaderHandler.leader_nodes]) |\
@@ -230,7 +221,17 @@ def start(leaders):
         tornado.ioloop.IOLoop.instance().add_callback(mining)
     working = True
 
-def stop(leaders):
+def disconnect(leaders):
+    nodes_to_close = set()
+    for node in LeaderConnector.leader_nodes:
+        if (node.host, node.port) not in leaders:
+            nodes_to_close.add(node)
+
+    print(tree.current_port, "nodes_to_close", len(nodes_to_close))
+    while nodes_to_close:
+        nodes_to_close.pop().close()
+
+def stop():
     global working
     working = False
 
