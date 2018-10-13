@@ -218,11 +218,10 @@ def start(leaders):
     while nodes_to_close:
         nodes_to_close.pop().close()
 
-    connected = set([(i.host, i.port) for i in LeaderConnector.leader_nodes]) |\
-                set([(i.from_host, i.from_port) for i in LeaderHandler.leader_nodes]) |\
-                set([(tree.current_host, tree.current_port)])
-    # print(tree.current_port, [(i.host, i.port) for i in LeaderConnector.leader_nodes])
     for other_leader_addr in leaders:
+        connected = set([(i.host, i.port) for i in LeaderConnector.leader_nodes]) |\
+                    set([(i.from_host, i.from_port) for i in LeaderHandler.leader_nodes]) |\
+                    set([(tree.current_host, tree.current_port)])
         if other_leader_addr not in connected:
             print(tree.current_port, other_leader_addr, connected)
             LeaderConnector(*other_leader_addr)
