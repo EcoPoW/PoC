@@ -16,7 +16,7 @@ import tornado.httpclient
 import tornado.gen
 
 
-# import setting
+import setting
 import tree
 import node
 import leader
@@ -73,22 +73,12 @@ def mining():
         difficulty = longest[-1].difficulty
         recent = longest[-3:]
         # print(recent)
-        if len(recent) * 6 > recent[-1].timestamp - recent[0].timestamp:
+        if len(recent) * setting.BLOCK_INTERVAL_SECONDS > recent[-1].timestamp - recent[0].timestamp:
             new_difficulty = min(255, difficulty + 1)
         else:
             new_difficulty = max(1, difficulty - 1)
 
-        if tree.current_port in [i.identity for i in longest[-6:-3]]:
-            if not leader.working:
-                other_leaders = [("localhost", i.identity) for i in longest[-6:-3] if i.identity != tree.current_port]
-                leader.start(other_leaders)
-            # leader.working = True
-            return # if avoid election while mining
-        else:
-            leader.stop()
-            # leader.working = False
-
-        if tree.current_port in [i.identity for i in recent]:
+        if tree.current_port in [i.identity for i in longest[-6:]]:
             return
 
     else:
@@ -116,6 +106,26 @@ def new_block(seq):
         database.connection.execute("INSERT INTO "+tree.current_port+"chain (hash, prev_hash, nonce, difficulty, identity, timestamp, data) VALUES (%s, %s, %s, %s, %s, %s, '')", block_hash, longest_hash, nonce, difficulty, identity, timestamp)
     except:
         pass
+
+    longest = longest_chain()
+    # print(longest)
+    if longest:
+        # longest_hash = longest[-1].hash
+        # difficulty = longest[-1].difficulty
+        # recent = longest[-3:]
+        # # print(recent)
+        # if len(recent) * setting.BLOCK_INTERVAL_SECONDS > recent[-1].timestamp - recent[0].timestamp:
+        #     new_difficulty = min(255, difficulty + 1)
+        # else:
+        #     new_difficulty = max(1, difficulty - 1)
+
+        leaders = [("localhost", i.identity) for i in longest[-6:-3]]
+        if tree.current_port in [i.identity for i in longest[-6:-3]]:
+            # if not leader.working:
+            leader.start(leaders)
+            # return # if avoid election while mining
+        else:
+            leader.stop(leaders)
 
 def main():
     print(tree.current_port, "miner")

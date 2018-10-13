@@ -132,7 +132,7 @@ class LeaderConnector(object):
             if self not in LeaderConnector.leader_nodes:
                 LeaderConnector.leader_nodes.add(self)
         except:
-            print(tree.current_port, "reconnect leader ...")
+            print(tree.current_port, "reconnect leader on connect ...")
             tornado.ioloop.IOLoop.instance().call_later(1.0, self.connect)
 
         # if self.branch is not None:
@@ -146,7 +146,8 @@ class LeaderConnector(object):
 
         if msg is None:
             if not self.remove_node:
-                self.ws_uri = "ws://%s:%s/leader?host=%s&port=%s" % (self.host, self.port, tree.current_host, tree.current_port)
+                print(tree.current_port, "reconnect leader on message...")
+                # self.ws_uri = "ws://%s:%s/leader?host=%s&port=%s" % (self.host, self.port, tree.current_host, tree.current_port)
                 tornado.ioloop.IOLoop.instance().call_later(1.0, self.connect)
             return
 
@@ -205,28 +206,38 @@ def mining():
     #     while LeaderConnector.leader_nodes:
     #         LeaderConnector.leader_nodes.pop().close()
 
-def start(other_leaders):
+def start(leaders):
     global working
-    # print(tree.current_port, [i[1] for i in other_leaders])
-    working = True
-    # while LeaderHandler.leader_nodes:
-    #     LeaderHandler.leader_nodes.pop().close()
-    # while LeaderConnector.leader_nodes:
-    #     LeaderConnector.leader_nodes.pop().close()
 
-    for other_leader_addr in other_leaders:
-        connected = set([(i.host, i.port) for i in LeaderConnector.leader_nodes]) & set([(i.from_host, i.from_port) for i in LeaderHandler.leader_nodes])
+    nodes_to_close = set()
+    for node in LeaderConnector.leader_nodes:
+        if (node.host, node.port) not in leaders:
+            nodes_to_close.add(node)
+
+    print(tree.current_port, "nodes_to_close", len(nodes_to_close))
+    while nodes_to_close:
+        nodes_to_close.pop().close()
+
+    connected = set([(i.host, i.port) for i in LeaderConnector.leader_nodes]) |\
+                set([(i.from_host, i.from_port) for i in LeaderHandler.leader_nodes]) |\
+                set([(tree.current_host, tree.current_port)])
+    # print(tree.current_port, [(i.host, i.port) for i in LeaderConnector.leader_nodes])
+    for other_leader_addr in leaders:
         if other_leader_addr not in connected:
+            print(tree.current_port, other_leader_addr, connected)
             LeaderConnector(*other_leader_addr)
-    tornado.ioloop.IOLoop.instance().add_callback(mining)
 
-def stop():
+    if not working:
+        tornado.ioloop.IOLoop.instance().add_callback(mining)
+    working = True
+
+def stop(leaders):
     global working
     working = False
-    while LeaderHandler.leader_nodes:
-        LeaderHandler.leader_nodes.pop().close()
+
     while LeaderConnector.leader_nodes:
         LeaderConnector.leader_nodes.pop().close()
+
 
 
 if __name__ == '__main__':
