@@ -8,11 +8,11 @@ import json
 import uuid
 
 import tornado.web
-import tornado.websocket
+# import tornado.websocket
 import tornado.ioloop
 import tornado.options
 import tornado.httpserver
-import tornado.httpclient
+# import tornado.httpclient
 import tornado.gen
 
 import setting
@@ -29,6 +29,7 @@ class Application(tornado.web.Application):
                     (r"/available_branches", AvailableBranchesHandler),
                     (r"/disconnect", DisconnectHandler),
                     (r"/broadcast", BroadcastHandler),
+                    (r"/new_tx", NewTxHandler),
                     (r"/dashboard", DashboardHandler),
                     ]
         settings = {"debug":True}
@@ -65,8 +66,15 @@ class BroadcastHandler(tornado.web.RequestHandler):
     def get(self):
         test_msg = ["TEST_MSG", tree.current_groupid, time.time(), uuid.uuid4().hex]
 
-        forward(test_msg)
+        tree.forward(test_msg)
         self.finish({"test_msg": test_msg})
+
+class NewTxHandler(tornado.web.RequestHandler):
+    def post(self):
+        tx = json.loads(self.request.body)
+
+        tree.forward(["NEW_TX", tx, time.time(), uuid.uuid4().hex])
+        self.finish({"txid": tx["transaction"]["txid"]})
 
 class DashboardHandler(tornado.web.RequestHandler):
     def get(self):

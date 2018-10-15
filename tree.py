@@ -40,18 +40,21 @@ def forward(seq):
         return
     processed_message_ids.add(msg_id)
     msg = json.dumps(seq)
-    # print("DDDDDD", len(processed_message_ids), len(NodeHandler.child_nodes.values()), len(NodeConnector.parent_nodes), len(BuddyHandler.buddy_nodes), len(BuddyConnector.buddy_nodes))
 
     for child_node in NodeHandler.child_nodes.values():
+        # if not child_node.stream.closed:
         child_node.write_message(msg)
 
     for parent_connector in NodeConnector.parent_nodes:
+        # if parent_connector.conn.close_code is not None:
         parent_connector.conn.write_message(msg)
 
     for buddy_node in BuddyHandler.buddy_nodes:
+        # if not buddy_node.stream.closed:
         buddy_node.write_message(msg)
 
     for buddy_connector in BuddyConnector.buddy_nodes:
+        # if buddy_connector.conn.close_code is not None:
         buddy_connector.conn.write_message(msg)
 
 
@@ -113,7 +116,7 @@ class NodeHandler(tornado.websocket.WebSocketHandler):
     @tornado.gen.coroutine
     def on_message(self, msg):
         seq = json.loads(msg)
-        print(current_port, "on message from child", seq)
+        # print(current_port, "on message from child", seq)
         if seq[0] == "DISCARDED_BRANCHES":
             for i in seq[1]:
                 branch_host, branch_port, branch = i
@@ -127,6 +130,11 @@ class NodeHandler(tornado.websocket.WebSocketHandler):
 
         elif seq[0] == "NEW_BLOCK":
             miner.new_block(seq)
+
+        elif seq[0] == "NEW_TX":
+            if (current_host, current_port) in leader.current_leaders:
+                leader.transactions.append(seq)
+                print(current_port, "txid", seq[1]["transaction"]["txid"])
 
         forward(seq)
 
@@ -158,19 +166,22 @@ class NodeConnector(object):
     def on_connect(self, future):
         print(current_port, "node connect")
 
-        # try:
-        self.conn = future.result()
-        if self not in NodeConnector.parent_nodes:
-            NodeConnector.parent_nodes.add(self)
-        # except:
-        #     print(current_port, "reconnect1 ...")
-        #     tornado.ioloop.IOLoop.instance().call_later(1.0, self.connect)
+        try:
+            self.conn = future.result()
+            if self not in NodeConnector.parent_nodes:
+                NodeConnector.parent_nodes.add(self)
 
-        available_branches.add(tuple([current_host, current_port, self.branch+"0"]))
-        available_branches.add(tuple([current_host, current_port, self.branch+"1"]))
+            available_branches.add(tuple([current_host, current_port, self.branch+"0"]))
+            available_branches.add(tuple([current_host, current_port, self.branch+"1"]))
 
-        message = ["AVAILABLE_BRANCHES", [[current_host, current_port, self.branch+"0"], [current_host, current_port, self.branch+"1"]], uuid.uuid4().hex]
-        self.conn.write_message(json.dumps(message))
+            message = ["AVAILABLE_BRANCHES", [[current_host, current_port, self.branch+"0"], [current_host, current_port, self.branch+"1"]], uuid.uuid4().hex]
+            self.conn.write_message(json.dumps(message))
+
+        except:
+            print(current_port, "NodeConnector reconnect ...")
+            # tornado.ioloop.IOLoop.instance().call_later(1.0, bootstrap)
+            # tornado.ioloop.IOLoop.instance().call_later(1.0, functools.partial(bootstrap, (self.host, self.port)))
+            return
 
     def on_message(self, msg):
         global available_buddies
@@ -188,7 +199,7 @@ class NodeConnector(object):
             return
 
         seq = json.loads(msg)
-        print(current_port, "on message from parent", seq)
+        # print(current_port, "on message from parent", seq)
         if seq[0] == "DISCARDED_BRANCHES":
             for i in seq[1]:
                 branch_host, branch_port, branch = i
@@ -220,6 +231,11 @@ class NodeConnector(object):
 
         elif seq[0] == "NEW_BLOCK":
             miner.new_block(seq)
+
+        elif seq[0] == "NEW_TX":
+            if (current_host, current_port) in leader.current_leaders:
+                leader.transactions.append(seq)
+                print(current_port, "txid", seq[1]["transaction"]["txid"])
 
         # else:
         forward(seq)

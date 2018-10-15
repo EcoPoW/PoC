@@ -125,6 +125,7 @@ class LeaderConnector(object):
         # else:
         forward(seq)
 
+transactions = []
 def mining():
     # global working
     # print(tree.current_port, working)
@@ -132,18 +133,21 @@ def mining():
         tornado.ioloop.IOLoop.instance().call_later(1, mining)
 
 
+current_leaders = set()
 previous_leaders = set()
 def update(leaders):
+    global current_leaders
     global previous_leaders
     global working
 
+    current_leaders = leaders
     if ("localhost", tree.current_port) in leaders - previous_leaders:
         for other_leader_addr in leaders:
             connected = set([(i.host, i.port) for i in LeaderConnector.leader_nodes]) |\
                         set([(i.from_host, i.from_port) for i in LeaderHandler.leader_nodes]) |\
                         set([(tree.current_host, tree.current_port)])
             if other_leader_addr not in connected:
-                print(tree.current_port, other_leader_addr, connected)
+                # print(tree.current_port, other_leader_addr, connected)
                 LeaderConnector(*other_leader_addr)
 
                 if not working:
@@ -155,7 +159,7 @@ def update(leaders):
         if (node.host, node.port) not in leaders:
             nodes_to_close.add(node)
 
-    print(tree.current_port, "nodes_to_close", len(nodes_to_close))
+    # print(tree.current_port, "nodes_to_close", len(nodes_to_close))
     while nodes_to_close:
         nodes_to_close.pop().close()
 
