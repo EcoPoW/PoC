@@ -9,7 +9,7 @@ SIZE = 10000
 
 got_msg = set()
 user_friends = dict()
-all_users = range(SIZE)
+all_users = list(range(SIZE))
 
 for f in range(SIZE):
     random.shuffle(all_users)

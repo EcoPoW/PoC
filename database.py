@@ -37,6 +37,31 @@ create_graph = """CREATE TABLE `%sgraph` (
 ) ENGINE=InnoDB AUTO_INCREMENT=1000 DEFAULT CHARSET=utf8;
 """
 
+create_users = """CREATE TABLE `%susers` (
+    `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+    `user_id` char(40) NOT NULL DEFAULT '',
+    `hash` char(32) NOT NULL DEFAULT '',
+    `node_id` varchar(100) NOT NULL DEFAULT '',
+    `object_size` int(10) unsigned NOT NULL,
+    `folder_size` int(10) unsigned NOT NULL,
+    `timestamp` int(10) unsigned NOT NULL,
+    PRIMARY KEY (`id`),
+    KEY `user_id` (`user_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+"""
+
+create_roots = """CREATE TABLE `%sroots` (
+    `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+    `hash` char(32) NOT NULL DEFAULT '',
+    `size` int(10) unsigned NOT NULL,
+    `timestamp` int(10) unsigned NOT NULL,
+    `tree` text NOT NULL,
+    PRIMARY KEY (`id`),
+    KEY `hash` (`hash`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+"""
+
+
 def main():
     # if not connection.get("SELECT table_name FROM information_schema.tables WHERE table_schema = 'nodes' AND table_name = %s", tree.current_port+"chain"):
     connection.execute("DROP TABLE IF EXISTS %schain" % tree.current_port)

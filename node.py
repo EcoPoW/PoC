@@ -20,6 +20,7 @@ import tree
 import miner
 import leader
 import database
+import fs
 
 class Application(tornado.web.Application):
     def __init__(self):
@@ -31,6 +32,9 @@ class Application(tornado.web.Application):
                     (r"/broadcast", BroadcastHandler),
                     (r"/new_tx", NewTxHandler),
                     (r"/dashboard", DashboardHandler),
+                    # mtfs
+                    (r"/user", fs.UserHandler),
+                    (r"/object", fs.ObjectHandler),
                     ]
         settings = {"debug":True}
 

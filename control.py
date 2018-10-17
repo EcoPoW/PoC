@@ -30,6 +30,7 @@ class Application(tornado.web.Application):
                     (r"/new_node", NewNodeHandler),
                     (r"/new_tx", NewTxHandler),
                     (r"/dashboard", DashboardHandler),
+                    (r"/get_user", GetUserHandler),
                     (r"/static/(.*)", tornado.web.StaticFileHandler, dict(path=settings['static_path'])),
                     ]
 
@@ -98,6 +99,36 @@ class NewTxHandler(tornado.web.RequestHandler):
 
             self.write("%s\n" % response.body)
             # self.write("new tx %s\n" % txid)
+        self.finish()
+
+
+class GetUserHandler(tornado.web.RequestHandler):
+    @tornado.gen.coroutine
+    def get(self):
+        count = int(self.get_argument("n", "1"))
+        user_no = 4
+        sk_filename = "p" + str(user_no) + ".pem"
+        sk = SigningKey.from_pem(open("data/pk/"+sk_filename).read())
+
+        vk = sk.get_verifying_key()
+        # sender = base64.b64encode(vk.to_string())
+        timestamp = time.time()
+        signature = sk.sign(str(timestamp).encode("utf8"))
+        assert vk.verify(signature, str(timestamp).encode("utf8"))
+
+        known_addresses_list = list(ControlHandler.known_addresses)
+        addr = random.choice(known_addresses_list)
+        http_client = tornado.httpclient.AsyncHTTPClient()
+        print(len(vk.to_string().hex()), vk.to_string().hex())
+        print(len(signature.hex()), signature.hex())
+        url = "http://%s:%s/user?user_id=%s&signature=%s&timestamp=%s" % (tuple(addr)+(vk.to_string().hex(), signature.hex(), str(timestamp)))
+        # print(url)
+        try:
+            response = yield http_client.fetch(url)#, method="POST", body=json.dumps(data)
+        except Exception as e:
+            print("Error: %s" % e)
+
+        self.write("%s\n" % response.body)
         self.finish()
 
 class DashboardHandler(tornado.web.RequestHandler):
