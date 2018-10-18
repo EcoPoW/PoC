@@ -15,8 +15,8 @@ import tornado.httpserver
 # import tornado.httpclient
 import tornado.gen
 
-from ecdsa import VerifyingKey, NIST384p
-
+# from ecdsa import VerifyingKey, NIST384p
+from umbral import pre, keys, signing
 
 import setting
 import tree
@@ -43,15 +43,22 @@ class UserHandler(tornado.web.RequestHandler):
         signature = self.get_argument("signature")
         timestamp = self.get_argument("timestamp")
 
-        vk = VerifyingKey.from_string(bytes.fromhex(str(user_id)), curve=NIST384p)
-        assert vk.verify(bytes.fromhex(str(signature)), timestamp.encode("utf8"))
+        public_key = keys.UmbralPublicKey.from_bytes(bytes.fromhex(str(user_id)))
+        sig = signing.Signature.from_bytes(bytes.fromhex(str(signature)))
+        # vk = VerifyingKey.from_string(bytes.fromhex(str(user_id)), curve=NIST384p)
+        assert sig.verify(timestamp.encode("utf8"), public_key)
         # check database if this user located at current node
         # if not, query to get node id for the user
         # if not existing, query for the replicated
 
+        res = {"user_id": user_id}
         user = database.connection.get("SELECT * FROM "+tree.current_port+"users WHERE user_id = %s ORDER BY replication_id ASC LIMIT 1", user_id)
+        if user:
+            res["user"] = user
+        else:
+            pass
 
-        self.finish({"user_id": user_id, "user": user})
+        self.finish(res)
 
 def main():
     pass

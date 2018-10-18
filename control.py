@@ -9,7 +9,6 @@ import argparse
 import random
 import uuid
 import base64
-from ecdsa import SigningKey, NIST384p
 
 import tornado.web
 import tornado.websocket
@@ -17,6 +16,9 @@ import tornado.ioloop
 import tornado.options
 import tornado.httpserver
 import tornado.gen
+
+# from ecdsa import SigningKey, NIST384p
+from umbral import pre, keys, signing
 
 incremental_port = 8000
 
@@ -31,6 +33,7 @@ class Application(tornado.web.Application):
                     (r"/new_tx", NewTxHandler),
                     (r"/dashboard", DashboardHandler),
                     (r"/get_user", GetUserHandler),
+                    (r"/new_user", NewUserHandler),
                     (r"/static/(.*)", tornado.web.StaticFileHandler, dict(path=settings['static_path'])),
                     ]
 
@@ -105,33 +108,37 @@ class NewTxHandler(tornado.web.RequestHandler):
 class GetUserHandler(tornado.web.RequestHandler):
     @tornado.gen.coroutine
     def get(self):
-        count = int(self.get_argument("n", "1"))
-        user_no = 4
-        sk_filename = "p" + str(user_no) + ".pem"
-        sk = SigningKey.from_pem(open("data/pk/"+sk_filename).read())
-
-        vk = sk.get_verifying_key()
-        # sender = base64.b64encode(vk.to_string())
-        sender_binary = bin(int(vk.to_string().hex(), 16))[2:].zfill(768)
+        sk_filename = "pk0"
+        sk = keys.UmbralPrivateKey.from_bytes(bytes.fromhex(open("data/pk/"+sk_filename).read()))
+        vk = sk.get_pubkey()
+        # sender = base64.b64encode(vk.to_bytes())
+        sender_binary = bin(int(vk.to_bytes().hex(), 16))#[2:].zfill(768)
         timestamp = time.time()
-        signature = sk.sign(str(timestamp).encode("utf8"))
-        assert vk.verify(signature, str(timestamp).encode("utf8"))
+        sk_sign = signing.Signer(sk)
+        signature = sk_sign(str(timestamp).encode("utf8"))
+        assert signature.verify(str(timestamp).encode("utf8"), vk)
 
         known_addresses_list = list(ControlHandler.known_addresses)
         addr = random.choice(known_addresses_list)
         http_client = tornado.httpclient.AsyncHTTPClient()
-        print(len(vk.to_string().hex()), vk.to_string().hex())
-        # print(len(bin(int(vk.to_string().hex(), 16))), bin(int(vk.to_string().hex(), 16)))
-        print(len(signature.hex()), signature.hex())
-        url = "http://%s:%s/user?user_id=%s&signature=%s&timestamp=%s" % (tuple(addr)+(vk.to_string().hex(), signature.hex(), str(timestamp)))
+        print(len(vk.to_bytes().hex()), vk.to_bytes().hex())
+        # print(len(bin(int(vk.to_bytes().hex(), 16))), bin(int(vk.to_bytes().hex(), 16)))
+        print(len(bytes(signature).hex()), bytes(signature).hex())
+        url = "http://%s:%s/user?user_id=%s&signature=%s&timestamp=%s" % (tuple(addr)+(vk.to_bytes().hex(), bytes(signature).hex(), str(timestamp)))
         # print(url)
         try:
             response = yield http_client.fetch(url)#, method="POST", body=json.dumps(data)
         except Exception as e:
             print("Error: %s" % e)
 
-        self.write("%s\n" % response.body)
-        self.finish()
+        self.finish(json.loads(response.body))
+
+class NewUserHandler(tornado.web.RequestHandler):
+    @tornado.gen.coroutine
+    def get(self):
+        sk_filename = "pk0"
+        sk = keys.UmbralPrivateKey.from_bytes(bytes.fromhex(open("data/pk/"+sk_filename).read()))
+
 
 class DashboardHandler(tornado.web.RequestHandler):
     def get(self):

@@ -39,7 +39,7 @@ create_graph = """CREATE TABLE `%sgraph` (
 
 create_users = """CREATE TABLE `%susers` (
     `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
-    `user_id` char(192) NOT NULL DEFAULT '',
+    `user_id` char(70) NOT NULL DEFAULT '',
     `hash` char(32) NOT NULL DEFAULT '',
     `node_id` varchar(100) NOT NULL DEFAULT '',
     `object_size` int(10) unsigned NOT NULL,

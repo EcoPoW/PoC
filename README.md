@@ -16,14 +16,17 @@ python 3.4+ (or 2.7.9+)
 
 Ubuntu 14.04 LTS
 
-    sudo apt install mysql-server python3-pip openssl libssl-dev libffi-dev
-    sudo pip3 install -U tornado pymysql setuptools
+    sudo apt install mysql-server python3 python3-pip openssl libssl-dev libffi-dev
+    sudo pip3 install -U setuptools pip
+    sudo pip3 install -r requirements.txt
 
-Mac
+macOS
 
     brew install mysql python3
-    pip3 install -U tornado pymysql setuptools
 
-Anaconda/miniconda
+or install Anaconda/miniconda python3 on Windows or macOS
 
-    conda install -U tornado pymysql
+Then
+
+    pip3 install -U setuptools pip
+    pip3 install -r requirements.txt
