@@ -30,6 +30,9 @@ available_branches = set()
 available_buddies = set()
 available_children_buddies = dict()
 
+nodes_neighborhoods = dict()
+nodes_parents = dict()
+
 processed_message_ids = set()
 
 def forward(seq):

@@ -44,12 +44,14 @@ class UserHandler(tornado.web.RequestHandler):
         timestamp = self.get_argument("timestamp")
 
         vk = VerifyingKey.from_string(bytes.fromhex(str(user_id)), curve=NIST384p)
-        test = vk.verify(bytes.fromhex(str(signature)), timestamp.encode("utf8"))
+        assert vk.verify(bytes.fromhex(str(signature)), timestamp.encode("utf8"))
         # check database if this user located at current node
         # if not, query to get node id for the user
         # if not existing, query for the replicated
 
-        self.finish({"test": test})
+        user = database.connection.get("SELECT * FROM "+tree.current_port+"users WHERE user_id = %s ORDER BY replication_id ASC LIMIT 1", user_id)
+
+        self.finish({"user_id": user_id, "user": user})
 
 def main():
     pass

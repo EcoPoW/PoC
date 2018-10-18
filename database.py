@@ -39,12 +39,13 @@ create_graph = """CREATE TABLE `%sgraph` (
 
 create_users = """CREATE TABLE `%susers` (
     `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
-    `user_id` char(40) NOT NULL DEFAULT '',
+    `user_id` char(192) NOT NULL DEFAULT '',
     `hash` char(32) NOT NULL DEFAULT '',
     `node_id` varchar(100) NOT NULL DEFAULT '',
     `object_size` int(10) unsigned NOT NULL,
     `folder_size` int(10) unsigned NOT NULL,
     `timestamp` int(10) unsigned NOT NULL,
+    `replication_id` tinyint(3) unsigned NOT NULL,
     PRIMARY KEY (`id`),
     KEY `user_id` (`user_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
@@ -70,3 +71,9 @@ def main():
 
     connection.execute("DROP TABLE IF EXISTS %sgraph" % tree.current_port)
     connection.execute(create_graph % tree.current_port)
+
+    connection.execute("DROP TABLE IF EXISTS %susers" % tree.current_port)
+    connection.execute(create_users % tree.current_port)
+
+    connection.execute("DROP TABLE IF EXISTS %sroots" % tree.current_port)
+    connection.execute(create_roots % tree.current_port)

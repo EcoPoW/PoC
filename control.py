@@ -112,6 +112,7 @@ class GetUserHandler(tornado.web.RequestHandler):
 
         vk = sk.get_verifying_key()
         # sender = base64.b64encode(vk.to_string())
+        sender_binary = bin(int(vk.to_string().hex(), 16))[2:].zfill(768)
         timestamp = time.time()
         signature = sk.sign(str(timestamp).encode("utf8"))
         assert vk.verify(signature, str(timestamp).encode("utf8"))
@@ -120,6 +121,7 @@ class GetUserHandler(tornado.web.RequestHandler):
         addr = random.choice(known_addresses_list)
         http_client = tornado.httpclient.AsyncHTTPClient()
         print(len(vk.to_string().hex()), vk.to_string().hex())
+        # print(len(bin(int(vk.to_string().hex(), 16))), bin(int(vk.to_string().hex(), 16)))
         print(len(signature.hex()), signature.hex())
         url = "http://%s:%s/user?user_id=%s&signature=%s&timestamp=%s" % (tuple(addr)+(vk.to_string().hex(), signature.hex(), str(timestamp)))
         # print(url)
