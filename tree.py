@@ -24,7 +24,7 @@ control_port = 0
 current_host = None
 current_port = None
 current_branch = None
-current_groupid = ""
+current_groupid = None
 
 available_branches = set()
 available_buddies = set()
@@ -60,6 +60,15 @@ def forward(seq):
         # if buddy_connector.conn.close_code is not None:
         buddy_connector.conn.write_message(msg)
 
+def group_distance(a, b):
+    if len(a) > len(b):
+        a, b = b, a
+    i = 0
+    while i < len(a):
+        if a[i] != b[i]:
+            break
+        i += 1
+    return len(a)+len(b)-i*2
 
 # connect point from child node
 class NodeHandler(tornado.websocket.WebSocketHandler):
@@ -135,6 +144,8 @@ class NodeHandler(tornado.websocket.WebSocketHandler):
 
         elif seq[0] == "GROUP_ID_FOR_NEIGHBOURHOODS":
             groupid = seq[1]
+            if current_groupid is not None and group_distance(groupid, current_groupid) > setting.NEIGHBOURHOODS_HOPS:
+                return
             print(current_port, "GROUP_ID_FOR_NEIGHBOURHOODS", current_groupid, groupid)
 
         elif seq[0] == "NEW_BLOCK":
@@ -186,8 +197,9 @@ class NodeConnector(object):
             message = ["AVAILABLE_BRANCHES", [[current_host, current_port, self.branch+"0"], [current_host, current_port, self.branch+"1"]], uuid.uuid4().hex]
             self.conn.write_message(json.dumps(message))
 
-            message = ["GROUP_ID_FOR_NEIGHBOURHOODS", current_groupid, list(available_buddies), uuid.uuid4().hex]
-            self.conn.write_message(json.dumps(message))
+            if current_groupid is not None:
+                message = ["GROUP_ID_FOR_NEIGHBOURHOODS", current_groupid, list(available_buddies), uuid.uuid4().hex]
+                self.conn.write_message(json.dumps(message))
 
         except:
             print(current_port, "NodeConnector reconnect ...")
@@ -243,10 +255,16 @@ class NodeConnector(object):
 
             available_children_buddies.setdefault(current_groupid, set()).add((current_host, current_port))
             print(current_port, "GROUP_ID", current_groupid, seq[3])
-            # return
+
+            if self.conn is not None:
+                message = ["GROUP_ID_FOR_NEIGHBOURHOODS", current_groupid, list(available_buddies), uuid.uuid4().hex]
+                self.conn.write_message(json.dumps(message))
+            return
 
         elif seq[0] == "GROUP_ID_FOR_NEIGHBOURHOODS":
             groupid = seq[1]
+            if current_groupid is not None and group_distance(groupid, current_groupid) > setting.NEIGHBOURHOODS_HOPS:
+                return
             print(current_port, "GROUP_ID_FOR_NEIGHBOURHOODS", current_groupid, groupid)
 
         elif seq[0] == "NEW_BLOCK":
@@ -445,6 +463,7 @@ def bootstrap(addr):
 
 @tornado.gen.coroutine
 def on_message(msg):
+    global current_groupid
     global available_branches
     # global available_buddies
     # global available_children_buddies
