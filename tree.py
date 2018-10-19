@@ -118,6 +118,8 @@ class NodeHandler(tornado.websocket.WebSocketHandler):
 
     @tornado.gen.coroutine
     def on_message(self, msg):
+        global current_groupid
+
         seq = json.loads(msg)
         # print(current_port, "on message from child", seq)
         if seq[0] == "DISCARDED_BRANCHES":
@@ -130,6 +132,10 @@ class NodeHandler(tornado.websocket.WebSocketHandler):
             for i in seq[1]:
                 branch_host, branch_port, branch = i
                 available_branches.add(tuple([branch_host, branch_port, branch]))
+
+        elif seq[0] == "GROUP_ID_FOR_NEIGHBOURHOODS":
+            groupid = seq[1]
+            print(current_port, "GROUP_ID_FOR_NEIGHBOURHOODS", current_groupid, groupid)
 
         elif seq[0] == "NEW_BLOCK":
             miner.new_block(seq)
@@ -180,15 +186,21 @@ class NodeConnector(object):
             message = ["AVAILABLE_BRANCHES", [[current_host, current_port, self.branch+"0"], [current_host, current_port, self.branch+"1"]], uuid.uuid4().hex]
             self.conn.write_message(json.dumps(message))
 
+            message = ["GROUP_ID_FOR_NEIGHBOURHOODS", current_groupid, list(available_buddies), uuid.uuid4().hex]
+            self.conn.write_message(json.dumps(message))
+
         except:
             print(current_port, "NodeConnector reconnect ...")
             # tornado.ioloop.IOLoop.instance().call_later(1.0, bootstrap)
             # tornado.ioloop.IOLoop.instance().call_later(1.0, functools.partial(bootstrap, (self.host, self.port)))
             return
 
+    @tornado.gen.coroutine
     def on_message(self, msg):
         global available_buddies
         global current_branch
+        global current_groupid
+
         if msg is None:
             # print("reconnect2 ...")
             if current_branch in available_branches:
@@ -230,7 +242,12 @@ class NodeConnector(object):
                 BuddyConnector(h, p)
 
             available_children_buddies.setdefault(current_groupid, set()).add((current_host, current_port))
-            return
+            print(current_port, "GROUP_ID", current_groupid, seq[3])
+            # return
+
+        elif seq[0] == "GROUP_ID_FOR_NEIGHBOURHOODS":
+            groupid = seq[1]
+            print(current_port, "GROUP_ID_FOR_NEIGHBOURHOODS", current_groupid, groupid)
 
         elif seq[0] == "NEW_BLOCK":
             miner.new_block(seq)

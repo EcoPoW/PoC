@@ -136,8 +136,29 @@ class GetUserHandler(tornado.web.RequestHandler):
 class NewUserHandler(tornado.web.RequestHandler):
     @tornado.gen.coroutine
     def get(self):
-        sk_filename = "pk0"
-        sk = keys.UmbralPrivateKey.from_bytes(bytes.fromhex(open("data/pk/"+sk_filename).read()))
+        sk_filename = "pk1"
+        sk = keys.UmbralPrivateKey.gen_key()
+        open("data/pk/"+sk_filename, "w").write(sk.to_bytes().hex())
+        vk = sk.get_pubkey()
+        user_id = vk.to_bytes().hex()
+        timestamp = time.time()
+        sk_sign = signing.Signer(sk)
+        signature = sk_sign(str(timestamp).encode("utf8"))
+
+        known_addresses_list = list(ControlHandler.known_addresses)
+        addr = random.choice(known_addresses_list)
+        http_client = tornado.httpclient.AsyncHTTPClient()
+        # print(len(vk.to_bytes().hex()), vk.to_bytes().hex())
+        # print(len(bytes(signature).hex()), bytes(signature).hex())
+        url = "http://%s:%s/user?user_id=%s&signature=%s&timestamp=%s" % (tuple(addr)+(user_id, bytes(signature).hex(), str(timestamp)))
+        # print(url)
+        try:
+            response = yield http_client.fetch(url)#, method="POST", body=json.dumps(data)
+        except Exception as e:
+            print("Error: %s" % e)
+
+
+        self.finish({"user_id":user_id})
 
 
 class DashboardHandler(tornado.web.RequestHandler):
