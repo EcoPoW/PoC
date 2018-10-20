@@ -30,8 +30,8 @@ available_branches = set()
 available_buddies = set()
 available_children_buddies = dict()
 
-nodes_neighborhoods = dict()
-nodes_parents = dict()
+node_neighborhoods = dict()
+node_parents = dict()
 
 processed_message_ids = set()
 
@@ -78,6 +78,8 @@ class NodeHandler(tornado.websocket.WebSocketHandler):
         return True
 
     def open(self):
+        global node_parents
+
         self.branch = self.get_argument("branch")
         self.from_host = self.get_argument("host")
         self.from_port = self.get_argument("port")
@@ -104,6 +106,10 @@ class NodeHandler(tornado.websocket.WebSocketHandler):
         buddies = list(available_children_buddies.get(self.branch, set()))
         message = ["GROUP_ID", self.branch, buddies, uuid.uuid4().hex]
         self.write_message(json.dumps(message))
+
+        message = ["NODE_PARENTS", node_parents]
+        self.write_message(json.dumps(message))
+
         available_children_buddies.setdefault(self.branch, set()).add((self.from_host, self.from_port))
 
     def on_close(self):
@@ -128,6 +134,7 @@ class NodeHandler(tornado.websocket.WebSocketHandler):
     @tornado.gen.coroutine
     def on_message(self, msg):
         global current_groupid
+        global node_neighborhoods
 
         seq = json.loads(msg)
         # print(current_port, "on message from child", seq)
@@ -142,11 +149,13 @@ class NodeHandler(tornado.websocket.WebSocketHandler):
                 branch_host, branch_port, branch = i
                 available_branches.add(tuple([branch_host, branch_port, branch]))
 
-        elif seq[0] == "GROUP_ID_FOR_NEIGHBOURHOODS":
+        elif seq[0] == "NODE_NEIGHBOURHOODS":
             groupid = seq[1]
             if current_groupid is not None and group_distance(groupid, current_groupid) > setting.NEIGHBOURHOODS_HOPS:
                 return
-            print(current_port, "GROUP_ID_FOR_NEIGHBOURHOODS", current_groupid, groupid)
+            hosts = node_neighborhoods.get(groupid, [])
+            node_neighborhoods[groupid] = [list(i) for i in set([tuple(i) for i in hosts+seq[2]])]
+            print(current_port, "NODE_NEIGHBOURHOODS", current_groupid, groupid, node_neighborhoods)
 
         elif seq[0] == "NEW_BLOCK":
             miner.new_block(seq)
@@ -184,6 +193,7 @@ class NodeConnector(object):
         self.conn.close()
 
     def on_connect(self, future):
+        global available_buddies
         print(current_port, "node connect")
 
         try:
@@ -198,7 +208,8 @@ class NodeConnector(object):
             self.conn.write_message(json.dumps(message))
 
             if current_groupid is not None:
-                message = ["GROUP_ID_FOR_NEIGHBOURHOODS", current_groupid, list(available_buddies), uuid.uuid4().hex]
+                available_buddies.add(tuple([current_host, current_port]))
+                message = ["NODE_NEIGHBOURHOODS", current_groupid, list(available_buddies), uuid.uuid4().hex]
                 self.conn.write_message(json.dumps(message))
 
         except:
@@ -212,6 +223,8 @@ class NodeConnector(object):
         global available_buddies
         global current_branch
         global current_groupid
+        global node_parents
+        global node_neighborhoods
 
         if msg is None:
             # print("reconnect2 ...")
@@ -255,17 +268,29 @@ class NodeConnector(object):
 
             available_children_buddies.setdefault(current_groupid, set()).add((current_host, current_port))
             print(current_port, "GROUP_ID", current_groupid, seq[3])
+            node_parents[current_groupid] = [list(i) for i in available_buddies]
+            print(current_port, "NODE_PARENTS", node_parents[current_groupid])
 
             if self.conn is not None:
-                message = ["GROUP_ID_FOR_NEIGHBOURHOODS", current_groupid, list(available_buddies), uuid.uuid4().hex]
+                message = ["NODE_NEIGHBOURHOODS", current_groupid, list(available_buddies), uuid.uuid4().hex]
                 self.conn.write_message(json.dumps(message))
             return
 
-        elif seq[0] == "GROUP_ID_FOR_NEIGHBOURHOODS":
+        elif seq[0] == "NODE_PARENTS":
+            node_parents.update(seq[1])
+            print(current_port, "NODE_PARENTS", node_parents)
+
+            for child_node in NodeHandler.child_nodes.values():
+                child_node.write_message(msg)
+            return
+
+        elif seq[0] == "NODE_NEIGHBOURHOODS":
             groupid = seq[1]
             if current_groupid is not None and group_distance(groupid, current_groupid) > setting.NEIGHBOURHOODS_HOPS:
                 return
-            print(current_port, "GROUP_ID_FOR_NEIGHBOURHOODS", current_groupid, groupid)
+            hosts = node_neighborhoods.get(groupid, [])
+            node_neighborhoods[groupid] = [list(i) for i in set([tuple(i) for i in hosts+seq[2]])]
+            print(current_port, "NODE_NEIGHBOURHOODS", current_groupid, groupid, node_neighborhoods)
 
         elif seq[0] == "NEW_BLOCK":
             miner.new_block(seq)
@@ -497,6 +522,7 @@ def main():
     global current_host
     global current_port
     global control_port
+    global available_buddies
 
     parser = argparse.ArgumentParser(description="node description")
     parser.add_argument('--port')

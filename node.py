@@ -113,6 +113,16 @@ class DashboardHandler(tornado.web.RequestHandler):
         for node in leader.LeaderConnector.leader_nodes:
             self.write("%s %s<br>" %(node.host, node.port))
 
+        self.write("<br>node_parents:<br>")
+        for group_id in tree.node_parents:
+            host, port = tree.node_parents[group_id][0]
+            self.write("%s:%s %s<br>" %(group_id, host, port))
+
+        self.write("<br>node_neighborhoods:<br>")
+        for group_id in tree.node_neighborhoods:
+            host, port = tree.node_neighborhoods[group_id][0]
+            self.write("%s:%s %s<br>" %(group_id, host, port))
+
         self.finish()
 
 def main():
