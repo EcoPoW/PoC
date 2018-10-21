@@ -89,18 +89,18 @@ def mining():
             # db.execute("UPDATE chain SET hash = %s, prev_hash = %s, nonce = %s, wallet_address = %s WHERE id = %s", block_hash, longest_hash, nonce, wallet_address, last.id)
             # database.connection.execute("INSERT INTO "+tree.current_port+"chain (hash, prev_hash, nonce, difficulty, identity, timestamp, data) VALUES (%s, %s, %s, %s, '')", block_hash, longest_hash, nonce, difficulty, str(tree.current_port))
 
-            message = ["NEW_BLOCK", block_hash, longest_hash, nonce, new_difficulty, str(tree.current_port), int(time.time()), uuid.uuid4().hex]
+            message = ["NEW_BLOCK", block_hash, longest_hash, nonce, new_difficulty, str(tree.current_port), int(time.time()), {}, uuid.uuid4().hex]
             tree.forward(message)
-            print(tree.current_port, "mining", nonce, block_hash)
+            # print(tree.current_port, "mining", nonce, block_hash)
             nonce = 0
             break
 
         nonce += 1
 
 def new_block(seq):
-    msg_header, block_hash, longest_hash, nonce, difficulty, identity, timestamp, msg_id = seq
+    msg_header, block_hash, longest_hash, nonce, difficulty, identity, timestamp, data, msg_id = seq
     try:
-        database.connection.execute("INSERT INTO "+tree.current_port+"chain (hash, prev_hash, nonce, difficulty, identity, timestamp, data) VALUES (%s, %s, %s, %s, %s, %s, '')", block_hash, longest_hash, nonce, difficulty, identity, timestamp)
+        database.connection.execute("INSERT INTO "+tree.current_port+"chain (hash, prev_hash, nonce, difficulty, identity, timestamp, data) VALUES (%s, %s, %s, %s, %s, %s, %s)", block_hash, longest_hash, nonce, difficulty, identity, timestamp, json.dumps(data))
     except:
         pass
 
@@ -112,8 +112,8 @@ def new_block(seq):
 def main():
     print(tree.current_port, "miner")
 
-    mining_task = tornado.ioloop.PeriodicCallback(mining, 1000) # , jitter=0.5
-    mining_task.start()
+    # mining_task = tornado.ioloop.PeriodicCallback(mining, 1000) # , jitter=0.5
+    # mining_task.start()
 
 if __name__ == '__main__':
     print("run python node.py pls")

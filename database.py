@@ -10,10 +10,11 @@ create_chain = """CREATE TABLE `%schain` (
     `prev_hash` varchar(64) NOT NULL DEFAULT '',
     `nonce` int(11) unsigned NOT NULL,
     `difficulty` smallint(5) unsigned NOT NULL,
-    `identity` varchar(32) NOT NULL DEFAULT '',
+    `identity` varchar(66) NOT NULL DEFAULT '',
     `timestamp` int(11) unsigned NOT NULL,
     `data` mediumtext NOT NULL,
     PRIMARY KEY (`id`),
+    KEY `identity` (`identity`),
     UNIQUE KEY `hash` (`hash`)
 ) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8;
 """

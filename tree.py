@@ -17,6 +17,7 @@ import tornado.gen
 import setting
 import miner
 import leader
+import fs
 
 
 control_port = 0
@@ -164,6 +165,9 @@ class NodeHandler(tornado.websocket.WebSocketHandler):
             if (current_host, current_port) in leader.current_leaders:
                 leader.transactions.append(seq)
                 print(current_port, "txid", seq[1]["transaction"]["txid"])
+
+        elif seq[0] == "UPDATE_HOME":
+            fs.transactions.append(seq)
 
         forward(seq)
 
