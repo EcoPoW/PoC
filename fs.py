@@ -56,7 +56,19 @@ class UserHandler(tornado.web.RequestHandler):
         if user:
             res["user"] = user
         else:
-            pass
+            user_bin = bin(int(user_id[2:], 16))[2:].zfill(64*4)
+            print(tree.current_port, user_id[2:], user_bin)
+
+            group_ids = tree.node_neighborhoods.keys()
+            distance = 0
+            for i in group_ids:
+                new_distance = tree.group_distance(i, user_bin)
+                if new_distance < distance or not distance:
+                    distance = new_distance 
+                    group_id = i
+                # print(tree.current_port, i, new_distance)
+            print(tree.current_port, tree.current_groupid, group_id, distance)
+            res["node"] = [group_id, tree.node_neighborhoods[group_id]]
 
         self.finish(res)
 

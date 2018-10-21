@@ -257,6 +257,9 @@ class NodeConnector(object):
             # for node in NodeHandler.child_nodes.values():
             #     node.write_message(msg)
 
+            message = ["NODE_NEIGHBOURHOODS", current_groupid, list(available_buddies), uuid.uuid4().hex]
+            forward(message)
+
         elif seq[0] == "GROUP_ID":
             current_groupid = seq[1]
             available_buddies = available_buddies.union(set([tuple(i) for i in seq[2]]))
