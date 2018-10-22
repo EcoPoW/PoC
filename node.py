@@ -28,6 +28,7 @@ class Application(tornado.web.Application):
                     (r"/buddy", tree.BuddyHandler),
                     (r"/leader", leader.LeaderHandler),
                     (r"/available_branches", AvailableBranchesHandler),
+                    (r"/get_group", GetGroupHandler),
                     (r"/disconnect", DisconnectHandler),
                     (r"/broadcast", BroadcastHandler),
                     (r"/new_tx", NewTxHandler),
@@ -51,7 +52,26 @@ class AvailableBranchesHandler(tornado.web.RequestHandler):
         self.finish({"available_branches": branches,
                      "buddy":len(tree.available_buddies),
                      #"parents": parents,
-                     "group_id": tree.current_groupid})
+                     "groupid": tree.current_groupid})
+
+class GetGroupHandler(tornado.web.RequestHandler):
+    def get(self):
+        groupid = self.get_argument("groupid")
+        target_groupid = groupid
+        score = 0
+        print(tree.current_port, tree.node_neighborhoods)
+        for j in [tree.node_neighborhoods, tree.node_parents]:
+            for i in j:
+                new_score = tree.group_distance(groupid, i)
+                if new_score < score or score == 0:
+                    score = new_score
+                    target_groupid = i
+                    address = j[target_groupid]
+                print(i, new_score)
+
+        self.finish({"address": address,
+                     "groupid": target_groupid,
+                     "current_groupid": tree.current_groupid})
 
 class DisconnectHandler(tornado.web.RequestHandler):
     def get(self):
@@ -114,14 +134,14 @@ class DashboardHandler(tornado.web.RequestHandler):
             self.write("%s %s<br>" %(node.host, node.port))
 
         self.write("<br>node_parents:<br>")
-        for group_id in tree.node_parents:
-            host, port = tree.node_parents[group_id][0]
-            self.write("%s:%s %s<br>" %(group_id, host, port))
+        for groupid in tree.node_parents:
+            host, port = tree.node_parents[groupid][0]
+            self.write("%s:%s %s<br>" %(groupid, host, port))
 
         self.write("<br>node_neighborhoods:<br>")
-        for group_id in tree.node_neighborhoods:
-            host, port = tree.node_neighborhoods[group_id][0]
-            self.write("%s:%s %s<br>" %(group_id, host, port))
+        for groupid in tree.node_neighborhoods:
+            host, port = tree.node_neighborhoods[groupid][0]
+            self.write("%s:%s %s<br>" %(groupid, host, port))
 
         self.finish()
 

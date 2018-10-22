@@ -60,7 +60,7 @@ def mining():
         return
 
     for i in range(100):
-        block_hash = hashlib.sha256((identity + data + longest_hash + str(new_difficulty) + user_id + str(nonce)).encode('utf8')).hexdigest()
+        block_hash = hashlib.sha256((identity + data + longest_hash + str(difficulty) + str(nonce)).encode('utf8')).hexdigest()
         if int(block_hash, 16) < int("1" * (256-difficulty), 2):
             if longest:
                 print(len(longest), longest[-1].timestamp, longest[0].timestamp, longest[-1].timestamp - longest[0].timestamp)
@@ -87,7 +87,11 @@ class ObjectHandler(tornado.web.RequestHandler):
         self.finish({"available_branches": branches,
                      "buddy":len(tree.available_buddies),
                      #"parents": parents,
-                     "group_id": tree.current_groupid})
+                     "groupid": tree.current_groupid})
+    
+    def post(self):
+        file_block_hash = self.get_argument("file_block_hash")
+        user_id = self.get_argument("user_id")
 
 class UserHandler(tornado.web.RequestHandler):
     def get(self):
@@ -111,15 +115,15 @@ class UserHandler(tornado.web.RequestHandler):
         #     user_bin = bin(int(user_id[2:], 16))[2:].zfill(64*4)
         #     print(tree.current_port, user_id[2:], user_bin)
 
-        #     group_ids = tree.node_neighborhoods.keys()
+        #     groupids = tree.node_neighborhoods.keys()
         #     distance = 0
-        #     for i in group_ids:
+        #     for i in groupids:
         #         new_distance = tree.group_distance(i, user_bin)
         #         if new_distance < distance or not distance:
         #             distance = new_distance 
-        #             group_id = i
+        #             groupid = i
         #     print(tree.current_port, tree.current_groupid, group_id, distance)
-        #     res["node"] = [group_id, tree.node_neighborhoods[group_id]]
+        #     res["node"] = [groupid, tree.node_neighborhoods[group_id]]
 
         tree.forward(["UPDATE_HOME", user_id, {}, time.time(), uuid.uuid4().hex])
 

@@ -68,6 +68,8 @@ def mining():
     if longest:
         longest_hash = longest[-1].hash
         difficulty = longest[-1].difficulty
+        identity = longest[-1].identity
+        data = longest[-1].data
         recent = longest[-3:]
         # print(recent)
         if len(recent) * setting.BLOCK_INTERVAL_SECONDS > recent[-1].timestamp - recent[0].timestamp:
@@ -79,10 +81,10 @@ def mining():
             return
 
     else:
-        longest_hash, difficulty, new_difficulty = "0"*64, 1, 1
+        longest_hash, difficulty, new_difficulty, data, identity = "0"*64, 1, 1, "", ""
 
     for i in range(100):
-        block_hash = hashlib.sha256(('last.data' + longest_hash + str(tree.current_port) + str(nonce)).encode('utf8')).hexdigest()
+        block_hash = hashlib.sha256((identity + data + longest_hash + str(difficulty) + str(nonce)).encode('utf8')).hexdigest()
         if int(block_hash, 16) < int("1" * (256-difficulty), 2):
             if longest:
                 print(len(longest), longest[-1].timestamp, longest[0].timestamp, longest[-1].timestamp - longest[0].timestamp)
@@ -112,8 +114,8 @@ def new_block(seq):
 def main():
     print(tree.current_port, "miner")
 
-    # mining_task = tornado.ioloop.PeriodicCallback(mining, 1000) # , jitter=0.5
-    # mining_task.start()
+    mining_task = tornado.ioloop.PeriodicCallback(mining, 1000) # , jitter=0.5
+    mining_task.start()
 
 if __name__ == '__main__':
     print("run python node.py pls")
