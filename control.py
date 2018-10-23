@@ -175,25 +175,30 @@ class NewFileHandler(tornado.web.RequestHandler):
         ciphertext, capsule = pre.encrypt(vk, content*2000)
         print(len(ciphertext), capsule.to_bytes())
         sha1 = hashlib.sha1(ciphertext).hexdigest()
-        print(sha1, bin(int(sha1, 16)))
-        sender_binary = bin(int(vk.to_bytes().hex(), 16))#[2:].zfill(768)
-        timestamp = time.time()
-        sk_sign = signing.Signer(sk)
-        signature = sk_sign(str(timestamp).encode("utf8"))
-        assert signature.verify(str(timestamp).encode("utf8"), vk)
+        sha1_binary = bin(int(sha1, 16))[2:].zfill(32*4)
+        print(sha1_binary, len(sha1_binary), sha1, 16)
+        # timestamp = time.time()
+        # sk_sign = signing.Signer(sk)
+        # signature = sk_sign(str(timestamp).encode("utf8"))
+        # assert signature.verify(str(timestamp).encode("utf8"), vk)
 
-        # known_addresses_list = list(ControlHandler.known_addresses)
-        # addr = random.choice(known_addresses_list)
-        # http_client = tornado.httpclient.AsyncHTTPClient()
+        known_addresses_list = list(ControlHandler.known_addresses)
+        addr = random.choice(known_addresses_list)
+        http_client = tornado.httpclient.AsyncHTTPClient()
         # print(len(vk.to_bytes().hex()), vk.to_bytes().hex())
         # # print(len(bin(int(vk.to_bytes().hex(), 16))), bin(int(vk.to_bytes().hex(), 16)))
         # print(len(bytes(signature).hex()), bytes(signature).hex())
-        # url = "http://%s:%s/user?user_id=%s&signature=%s&timestamp=%s" % (tuple(addr)+(vk.to_bytes().hex(), bytes(signature).hex(), str(timestamp)))
-        # # print(url)
-        # try:
-        #     response = yield http_client.fetch(url)#, method="POST", body=json.dumps(data)
-        # except Exception as e:
-        #     print("Error: %s" % e)
+        while True:
+            url = "http://%s:%s/get_group?groupid=%s" % (tuple(addr)+(sha1_binary,))
+            try:
+                response = yield http_client.fetch(url)#, method="POST", body=json.dumps(data)
+            except Exception as e:
+                print("Error: %s" % e)
+            print(addr, response.body)
+            res = json.loads(response.body)
+            if res["groupid"] == res["current_groupid"]:
+                break
+            addr = res["address"][0]
 
 
 class DashboardHandler(tornado.web.RequestHandler):

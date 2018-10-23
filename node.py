@@ -58,16 +58,16 @@ class GetGroupHandler(tornado.web.RequestHandler):
     def get(self):
         groupid = self.get_argument("groupid")
         target_groupid = groupid
-        score = 0
-        print(tree.current_port, tree.node_neighborhoods)
+        score = None
+        # print(tree.current_port, tree.node_neighborhoods)
         for j in [tree.node_neighborhoods, tree.node_parents]:
             for i in j:
                 new_score = tree.group_distance(groupid, i)
-                if new_score < score or score == 0:
+                if score is None or new_score < score:
                     score = new_score
                     target_groupid = i
                     address = j[target_groupid]
-                print(i, new_score)
+                # print(i, new_score)
 
         self.finish({"address": address,
                      "groupid": target_groupid,
