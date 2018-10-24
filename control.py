@@ -10,6 +10,7 @@ import random
 import uuid
 import base64
 import hashlib
+import urllib
 
 import tornado.web
 import tornado.websocket
@@ -113,7 +114,6 @@ class GetUserHandler(tornado.web.RequestHandler):
         sk_filename = "pk1"
         sk = keys.UmbralPrivateKey.from_bytes(bytes.fromhex(open("data/pk/"+sk_filename).read()))
         vk = sk.get_pubkey()
-        # sender = base64.b64encode(vk.to_bytes())
         sender_binary = bin(int(vk.to_bytes().hex(), 16))#[2:].zfill(768)
         timestamp = time.time()
         sk_sign = signing.Signer(sk)
@@ -159,7 +159,6 @@ class NewUserHandler(tornado.web.RequestHandler):
         except Exception as e:
             print("Error: %s" % e)
 
-
         self.finish({"user_id":user_id})
 
 class NewFileHandler(tornado.web.RequestHandler):
@@ -168,19 +167,19 @@ class NewFileHandler(tornado.web.RequestHandler):
         sk_filename = "pk1"
         sk = keys.UmbralPrivateKey.from_bytes(bytes.fromhex(open("data/pk/"+sk_filename).read()))
         vk = sk.get_pubkey()
-        # sender = base64.b64encode(vk.to_bytes())
+        user_id = vk.to_bytes().hex()
 
         content = open("data/pk/"+sk_filename, "rb").read()
-        # plaintext = b'Proxy Re-encryption is cool!'
-        ciphertext, capsule = pre.encrypt(vk, content*2000)
+        ciphertext, capsule = pre.encrypt(vk, content)
         print(len(ciphertext), capsule.to_bytes())
         sha1 = hashlib.sha1(ciphertext).hexdigest()
         sha1_binary = bin(int(sha1, 16))[2:].zfill(32*4)
         print(sha1_binary, len(sha1_binary), sha1, 16)
-        # timestamp = time.time()
-        # sk_sign = signing.Signer(sk)
-        # signature = sk_sign(str(timestamp).encode("utf8"))
-        # assert signature.verify(str(timestamp).encode("utf8"), vk)
+
+        timestamp = time.time()
+        sk_sign = signing.Signer(sk)
+        signature = sk_sign((str(sha1)+str(timestamp)).encode("utf8"))
+        assert signature.verify((str(sha1)+str(timestamp)).encode("utf8"), vk)
 
         known_addresses_list = list(ControlHandler.known_addresses)
         addr = random.choice(known_addresses_list)
@@ -200,6 +199,10 @@ class NewFileHandler(tornado.web.RequestHandler):
                 break
             addr = res["address"][0]
 
+        url = "http://%s:%s/object?hash=%s&user_id=%s&timestamp=%s&signature=%s" % (tuple(addr)+(sha1, user_id, str(timestamp), bytes(signature).hex()))
+        print(url)
+        response = yield http_client.fetch(url, method="POST", body=ciphertext)
+        print(len(ciphertext), ciphertext)
 
 class DashboardHandler(tornado.web.RequestHandler):
     def get(self):

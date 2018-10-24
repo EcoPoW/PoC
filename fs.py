@@ -79,19 +79,28 @@ def mining():
 
 class ObjectHandler(tornado.web.RequestHandler):
     def get(self):
-        branches = list(tree.available_branches)
+        object_hash = self.get_argument("hash")
+        user_id = self.get_argument("user_id")
+        timestamp = self.get_argument("timestamp")
+        signature = self.get_argument("signature")
 
-        # parents = []
-        # for node in tree.NodeConnector.parent_nodes:
-        #     parents.append([node.host, node.port])
-        self.finish({"available_branches": branches,
-                     "buddy":len(tree.available_buddies),
-                     #"parents": parents,
-                     "groupid": tree.current_groupid})
+        vk = keys.UmbralPublicKey.from_bytes(bytes.fromhex(str(user_id)))
+        sig = signing.Signature.from_bytes(bytes.fromhex(str(signature)))
+        assert sig.verify((object_hash+timestamp).encode("utf8"), vk)
+
+        self.finish()
     
     def post(self):
-        file_block_hash = self.get_argument("file_block_hash")
+        object_hash = self.get_argument("hash")
         user_id = self.get_argument("user_id")
+        timestamp = self.get_argument("timestamp")
+        signature = self.get_argument("signature")
+
+        vk = keys.UmbralPublicKey.from_bytes(bytes.fromhex(str(user_id)))
+        sig = signing.Signature.from_bytes(bytes.fromhex(str(signature)))
+        assert sig.verify((object_hash+timestamp).encode("utf8"), vk)
+
+        print(tree.current_groupid, len(self.request.body), self.request.body)
 
 class UserHandler(tornado.web.RequestHandler):
     def get(self):
@@ -99,10 +108,10 @@ class UserHandler(tornado.web.RequestHandler):
         signature = self.get_argument("signature")
         timestamp = self.get_argument("timestamp")
 
-        public_key = keys.UmbralPublicKey.from_bytes(bytes.fromhex(str(user_id)))
+        vk = keys.UmbralPublicKey.from_bytes(bytes.fromhex(str(user_id)))
         sig = signing.Signature.from_bytes(bytes.fromhex(str(signature)))
         # vk = VerifyingKey.from_string(bytes.fromhex(str(user_id)), curve=NIST384p)
-        assert sig.verify(timestamp.encode("utf8"), public_key)
+        assert sig.verify(timestamp.encode("utf8"), vk)
         # check database if this user located at current node
         # if not, query to get node id for the user
         # if not existing, query for the replicated
