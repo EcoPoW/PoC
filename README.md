@@ -1,8 +1,8 @@
 # nodes
 
-start control
+start dashboard
 
-    python3 control.py
+    python3 dashboard.py
 
 start node
 
