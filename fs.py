@@ -54,20 +54,20 @@ def mining():
         return
     print(transactions)
     transaction = transactions[0]
-    msg_header, user_id, folder, timestamp, msg_id = transaction
+    msg_header, user_id, data, timestamp, msg_id = transaction
     if msg_id in [i["identity"] for i in longest or []]:
         transactions.pop(0)
         return
 
     for i in range(100):
-        block_hash = hashlib.sha256((identity + data + longest_hash + str(difficulty) + str(nonce)).encode('utf8')).hexdigest()
+        block_hash = hashlib.sha256((identity + json.dumps(data) + longest_hash + str(difficulty) + str(nonce)).encode('utf8')).hexdigest()
         if int(block_hash, 16) < int("1" * (256-difficulty), 2):
             if longest:
                 print(len(longest), longest[-1].timestamp, longest[0].timestamp, longest[-1].timestamp - longest[0].timestamp)
             # db.execute("UPDATE chain SET hash = %s, prev_hash = %s, nonce = %s, wallet_address = %s WHERE id = %s", block_hash, longest_hash, nonce, wallet_address, last.id)
-            # database.connection.execute("INSERT INTO "+tree.current_port+"chain (hash, prev_hash, nonce, difficulty, identity, timestamp, data) VALUES (%s, %s, %s, %s, '')", block_hash, longest_hash, nonce, difficulty, str(tree.current_port))
+            # database.connection.execute("INSERT INTO chain"+tree.current_port+" (hash, prev_hash, nonce, difficulty, identity, timestamp, data) VALUES (%s, %s, %s, %s, '')", block_hash, longest_hash, nonce, difficulty, str(tree.current_port))
 
-            message = ["NEW_BLOCK", block_hash, longest_hash, nonce, new_difficulty, msg_id, int(time.time()), {"folder": folder, "user_id": user_id, "by": tree.current_port}, uuid.uuid4().hex]
+            message = ["NEW_BLOCK", block_hash, longest_hash, nonce, new_difficulty, msg_id, int(time.time()), data, uuid.uuid4().hex]
             tree.forward(message)
             # print(tree.current_port, "mining", nonce, block_hash)
             nonce = 0
@@ -116,7 +116,7 @@ class UserHandler(tornado.web.RequestHandler):
         # if not, query to get node id for the user
         # if not existing, query for the replicated
 
-        res = {"user_id": user_id}
+        # res = {"user_id": user_id}
         # user = database.connection.get("SELECT * FROM "+tree.current_port+"users WHERE user_id = %s ORDER BY replication_id ASC LIMIT 1", user_id)
         # if user:
         #     res["user"] = user
@@ -133,10 +133,32 @@ class UserHandler(tornado.web.RequestHandler):
         #             groupid = i
         #     print(tree.current_port, tree.current_groupid, group_id, distance)
         #     res["node"] = [groupid, tree.node_neighborhoods[group_id]]
+        longest = miner.longest_chain() or []
+        for block in longest:
+            data = json.loads(block["data"])
+            if data["user_id"] == user_id:
+                self.finish(data)
+                break
+        else:
+            self.finish({})
 
-        tree.forward(["UPDATE_HOME", user_id, {}, time.time(), uuid.uuid4().hex])
+    def post(self):
+        user_id = self.get_argument("user_id")
+        folder_hash = self.get_argument("folder_hash")
+        block_size = int(self.get_argument("block_size"))
+        folder_size = int(self.get_argument("folder_size"))
+        groupid = self.get_argument("groupid")
+        timestamp = self.get_argument("timestamp")
+        signature = self.get_argument("signature")
 
-        self.finish(res)
+        vk = keys.UmbralPublicKey.from_bytes(bytes.fromhex(str(user_id)))
+        sig = signing.Signature.from_bytes(bytes.fromhex(str(signature)))
+        assert sig.verify(timestamp.encode("utf8"), vk)
+        print(tree.current_port, len(self.request.body))
+
+        data = {"folder_hash": folder_hash, "block_size":block_size, "folder_size": folder_size, "groupid": groupid, "user_id": user_id, "by": tree.current_port}
+        tree.forward(["UPDATE_HOME", user_id, data, time.time(), uuid.uuid4().hex])
+        self.finish()
 
 def main():
     print(tree.current_port, "fs")

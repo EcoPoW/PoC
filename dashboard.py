@@ -24,6 +24,24 @@ from umbral import pre, keys, signing
 
 incremental_port = 8000
 
+@tornado.gen.coroutine
+def get_group(target):
+    known_addresses_list = list(ControlHandler.known_addresses)
+    addr = random.choice(known_addresses_list)
+    http_client = tornado.httpclient.AsyncHTTPClient()
+    while True:
+        url = "http://%s:%s/get_group?groupid=%s" % (tuple(addr)+(target,))
+        try:
+            response = yield http_client.fetch(url)#, method="POST", body=json.dumps(data)
+        except Exception as e:
+            print("Error: %s" % e)
+        print(addr, response.body)
+        res = json.loads(response.body)
+        if res["groupid"] == res["current_groupid"]:
+            break
+        addr = res["address"][0]
+    return addr, res["groupid"]
+
 class Application(tornado.web.Application):
     def __init__(self):
         settings = {
@@ -114,7 +132,8 @@ class GetUserHandler(tornado.web.RequestHandler):
         sk_filename = "pk1"
         sk = keys.UmbralPrivateKey.from_bytes(bytes.fromhex(open("data/pk/"+sk_filename).read()))
         vk = sk.get_pubkey()
-        sender_binary = bin(int(vk.to_bytes().hex(), 16))#[2:].zfill(768)
+        user_id = vk.to_bytes().hex()
+        # sender_binary = bin(int(vk.to_bytes().hex(), 16))#[2:].zfill(768)
         timestamp = time.time()
         sk_sign = signing.Signer(sk)
         signature = sk_sign(str(timestamp).encode("utf8"))
@@ -126,7 +145,7 @@ class GetUserHandler(tornado.web.RequestHandler):
         print(len(vk.to_bytes().hex()), vk.to_bytes().hex())
         # print(len(bin(int(vk.to_bytes().hex(), 16))), bin(int(vk.to_bytes().hex(), 16)))
         print(len(bytes(signature).hex()), bytes(signature).hex())
-        url = "http://%s:%s/user?user_id=%s&signature=%s&timestamp=%s" % (tuple(addr)+(vk.to_bytes().hex(), bytes(signature).hex(), str(timestamp)))
+        url = "http://%s:%s/user?user_id=%s&timestamp=%s&signature=%s" % (tuple(addr)+(user_id, str(timestamp), bytes(signature).hex()))
         # print(url)
         try:
             response = yield http_client.fetch(url)#, method="POST", body=json.dumps(data)
@@ -143,19 +162,29 @@ class NewUserHandler(tornado.web.RequestHandler):
         open("data/pk/"+sk_filename, "w").write(sk.to_bytes().hex())
         vk = sk.get_pubkey()
         user_id = vk.to_bytes().hex()
-        timestamp = time.time()
+        timestamp = str(time.time())
         sk_sign = signing.Signer(sk)
-        signature = sk_sign(str(timestamp).encode("utf8"))
+        signature = sk_sign(timestamp.encode("utf8"))
 
-        known_addresses_list = list(ControlHandler.known_addresses)
-        addr = random.choice(known_addresses_list)
+        content = b"{}"
+        ciphertext, capsule = pre.encrypt(vk, content)
+        folder_size = "0"
+        block_size = len(ciphertext)
+        folder_hash = hashlib.sha1(ciphertext).hexdigest()
+        folder_hash_binary = bin(int(folder_hash, 16))[2:].zfill(32*4)
+        addr, groupid = yield get_group(folder_hash_binary)
+        print("ciphertext", len(ciphertext), "capsule", capsule.to_bytes().hex())
+
+        # known_addresses_list = list(ControlHandler.known_addresses)
+        # addr = random.choice(known_addresses_list)
         http_client = tornado.httpclient.AsyncHTTPClient()
         # print(len(vk.to_bytes().hex()), vk.to_bytes().hex())
         # print(len(bytes(signature).hex()), bytes(signature).hex())
-        url = "http://%s:%s/user?user_id=%s&signature=%s&timestamp=%s" % (tuple(addr)+(user_id, bytes(signature).hex(), str(timestamp)))
+        url = "http://%s:%s/user?user_id=%s&folder_hash=%s&block_size=%s&folder_size=%s&groupid=%s&capsule=%s&timestamp=%s&signature=%s" \
+                % (tuple(addr)+(user_id, folder_hash, block_size, folder_size, groupid, capsule.to_bytes().hex(), timestamp, bytes(signature).hex()))
         # print(url)
         try:
-            response = yield http_client.fetch(url)#, method="POST", body=json.dumps(data)
+            response = yield http_client.fetch(url, method="POST", body=ciphertext)
         except Exception as e:
             print("Error: %s" % e)
 
@@ -168,6 +197,7 @@ class NewFileHandler(tornado.web.RequestHandler):
         sk = keys.UmbralPrivateKey.from_bytes(bytes.fromhex(open("data/pk/"+sk_filename).read()))
         vk = sk.get_pubkey()
         user_id = vk.to_bytes().hex()
+        user_id_binary = bin(int(user_id, 16))[2:].zfill(32*4)
 
         content = open("data/pk/"+sk_filename, "rb").read()
         ciphertext, capsule = pre.encrypt(vk, content)
@@ -175,32 +205,16 @@ class NewFileHandler(tornado.web.RequestHandler):
         sha1 = hashlib.sha1(ciphertext).hexdigest()
         sha1_binary = bin(int(sha1, 16))[2:].zfill(32*4)
         print(sha1_binary, len(sha1_binary), sha1, 16)
+        addr, groupid = yield get_group(sha1_binary)
 
         timestamp = time.time()
         sk_sign = signing.Signer(sk)
         signature = sk_sign((str(sha1)+str(timestamp)).encode("utf8"))
         assert signature.verify((str(sha1)+str(timestamp)).encode("utf8"), vk)
 
-        known_addresses_list = list(ControlHandler.known_addresses)
-        addr = random.choice(known_addresses_list)
-        http_client = tornado.httpclient.AsyncHTTPClient()
-        # print(len(vk.to_bytes().hex()), vk.to_bytes().hex())
-        # # print(len(bin(int(vk.to_bytes().hex(), 16))), bin(int(vk.to_bytes().hex(), 16)))
-        # print(len(bytes(signature).hex()), bytes(signature).hex())
-        while True:
-            url = "http://%s:%s/get_group?groupid=%s" % (tuple(addr)+(sha1_binary,))
-            try:
-                response = yield http_client.fetch(url)#, method="POST", body=json.dumps(data)
-            except Exception as e:
-                print("Error: %s" % e)
-            print(addr, response.body)
-            res = json.loads(response.body)
-            if res["groupid"] == res["current_groupid"]:
-                break
-            addr = res["address"][0]
-
         url = "http://%s:%s/object?hash=%s&user_id=%s&timestamp=%s&signature=%s" % (tuple(addr)+(sha1, user_id, str(timestamp), bytes(signature).hex()))
         print(url)
+        http_client = tornado.httpclient.AsyncHTTPClient()
         response = yield http_client.fetch(url, method="POST", body=ciphertext)
         print(len(ciphertext), ciphertext)
 
