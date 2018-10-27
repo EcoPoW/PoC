@@ -1,5 +1,6 @@
 from __future__ import print_function
 
+import os
 import time
 import socket
 import subprocess
@@ -76,6 +77,20 @@ def mining():
 
         nonce += 1
 
+class CapsuleHandler(tornado.web.RequestHandler):
+    def get(self):
+        object_hash = self.get_argument("hash")
+        user_id = self.get_argument("user_id")
+        timestamp = self.get_argument("timestamp")
+        signature = self.get_argument("signature")
+
+        vk = keys.UmbralPublicKey.from_bytes(bytes.fromhex(str(user_id)))
+        sig = signing.Signature.from_bytes(bytes.fromhex(str(signature)))
+        assert sig.verify((object_hash+timestamp).encode("utf8"), vk)
+
+        capsule = open("data/%s/%s_capsule" % (user_id, object_hash), "rb").read()
+        self.finish(capsule)
+
 
 class ObjectHandler(tornado.web.RequestHandler):
     def get(self):
@@ -88,8 +103,9 @@ class ObjectHandler(tornado.web.RequestHandler):
         sig = signing.Signature.from_bytes(bytes.fromhex(str(signature)))
         assert sig.verify((object_hash+timestamp).encode("utf8"), vk)
 
-        self.finish()
-    
+        content = open("data/%s/%s" % (user_id, object_hash), "rb").read()
+        self.finish(content)
+
     def post(self):
         object_hash = self.get_argument("hash")
         user_id = self.get_argument("user_id")
@@ -105,8 +121,8 @@ class ObjectHandler(tornado.web.RequestHandler):
 class UserHandler(tornado.web.RequestHandler):
     def get(self):
         user_id = self.get_argument("user_id")
-        signature = self.get_argument("signature")
         timestamp = self.get_argument("timestamp")
+        signature = self.get_argument("signature")
 
         vk = keys.UmbralPublicKey.from_bytes(bytes.fromhex(str(user_id)))
         sig = signing.Signature.from_bytes(bytes.fromhex(str(signature)))
@@ -148,13 +164,19 @@ class UserHandler(tornado.web.RequestHandler):
         block_size = int(self.get_argument("block_size"))
         folder_size = int(self.get_argument("folder_size"))
         groupid = self.get_argument("groupid")
+        capsule = self.get_argument("capsule")
         timestamp = self.get_argument("timestamp")
         signature = self.get_argument("signature")
 
         vk = keys.UmbralPublicKey.from_bytes(bytes.fromhex(str(user_id)))
         sig = signing.Signature.from_bytes(bytes.fromhex(str(signature)))
         assert sig.verify(timestamp.encode("utf8"), vk)
+
         print(tree.current_port, len(self.request.body))
+        if not os.path.exists("data/%s" % user_id):
+            os.mkdir("data/%s" % user_id)
+        open("data/%s/%s" % (user_id, folder_hash), "wb").write(self.request.body)
+        open("data/%s/%s_capsule" % (user_id, folder_hash), "wb").write(bytes.fromhex(capsule))
 
         data = {"folder_hash": folder_hash, "block_size":block_size, "folder_size": folder_size, "groupid": groupid, "user_id": user_id, "by": tree.current_port}
         tree.forward(["UPDATE_HOME", user_id, data, time.time(), uuid.uuid4().hex])

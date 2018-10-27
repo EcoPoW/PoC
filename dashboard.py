@@ -21,6 +21,7 @@ import tornado.gen
 
 # from ecdsa import SigningKey, NIST384p
 from umbral import pre, keys, signing
+import umbral.config
 
 incremental_port = 8000
 
@@ -175,14 +176,9 @@ class NewUserHandler(tornado.web.RequestHandler):
         addr, groupid = yield get_group(folder_hash_binary)
         print("ciphertext", len(ciphertext), "capsule", capsule.to_bytes().hex())
 
-        # known_addresses_list = list(ControlHandler.known_addresses)
-        # addr = random.choice(known_addresses_list)
         http_client = tornado.httpclient.AsyncHTTPClient()
-        # print(len(vk.to_bytes().hex()), vk.to_bytes().hex())
-        # print(len(bytes(signature).hex()), bytes(signature).hex())
         url = "http://%s:%s/user?user_id=%s&folder_hash=%s&block_size=%s&folder_size=%s&groupid=%s&capsule=%s&timestamp=%s&signature=%s" \
                 % (tuple(addr)+(user_id, folder_hash, block_size, folder_size, groupid, capsule.to_bytes().hex(), timestamp, bytes(signature).hex()))
-        # print(url)
         try:
             response = yield http_client.fetch(url, method="POST", body=ciphertext)
         except Exception as e:
@@ -197,8 +193,51 @@ class NewFileHandler(tornado.web.RequestHandler):
         sk = keys.UmbralPrivateKey.from_bytes(bytes.fromhex(open("data/pk/"+sk_filename).read()))
         vk = sk.get_pubkey()
         user_id = vk.to_bytes().hex()
-        user_id_binary = bin(int(user_id, 16))[2:].zfill(32*4)
+        http_client = tornado.httpclient.AsyncHTTPClient()
 
+        # get root tree hash from blockchain, from random node
+        timestamp = time.time()
+        sk_sign = signing.Signer(sk)
+        signature = sk_sign(str(timestamp).encode("utf8"))
+        assert signature.verify(str(timestamp).encode("utf8"), vk)
+
+        known_addresses_list = list(ControlHandler.known_addresses)
+        addr = random.choice(known_addresses_list)
+        # print(len(vk.to_bytes().hex()), vk.to_bytes().hex())
+        # print(len(bytes(signature).hex()), bytes(signature).hex())
+        url = "http://%s:%s/user?user_id=%s&timestamp=%s&signature=%s" % (tuple(addr)+(user_id, str(timestamp), bytes(signature).hex()))
+        try:
+            response = yield http_client.fetch(url)#, method="POST", body=json.dumps(data)
+            user = json.loads(response.body)
+            # print(user)
+            groupid = user["groupid"]
+            folder_hash = user["folder_hash"]
+        except Exception as e:
+            print("Error: %s" % e)
+
+        # get content object and capsule from the group
+        timestamp = time.time()
+        sk_sign = signing.Signer(sk)
+        signature = sk_sign((str(folder_hash)+str(timestamp)).encode("utf8"))
+        assert signature.verify((str(folder_hash)+str(timestamp)).encode("utf8"), vk)
+
+        addr, _ = yield get_group(groupid)
+        print(_, groupid)
+        url = "http://%s:%s/object?hash=%s&user_id=%s&timestamp=%s&signature=%s" % (tuple(addr)+(folder_hash, user_id, str(timestamp), bytes(signature).hex()))
+        response = yield http_client.fetch(url)
+        ciphertext = response.body
+
+        url = "http://%s:%s/capsule?hash=%s&user_id=%s&timestamp=%s&signature=%s" % (tuple(addr)+(folder_hash, user_id, str(timestamp), bytes(signature).hex()))
+        response = yield http_client.fetch(url)
+        capsule = response.body
+
+        # decode
+        print(ciphertext, capsule)
+        cleartext = pre.decrypt(ciphertext=ciphertext,
+                                capsule=pre.Capsule.from_bytes(capsule, umbral.config.default_params()),
+                                decrypting_key=sk)
+
+        # put file
         content = open("data/pk/"+sk_filename, "rb").read()
         ciphertext, capsule = pre.encrypt(vk, content)
         print(len(ciphertext), capsule.to_bytes())
@@ -213,10 +252,37 @@ class NewFileHandler(tornado.web.RequestHandler):
         assert signature.verify((str(sha1)+str(timestamp)).encode("utf8"), vk)
 
         url = "http://%s:%s/object?hash=%s&user_id=%s&timestamp=%s&signature=%s" % (tuple(addr)+(sha1, user_id, str(timestamp), bytes(signature).hex()))
-        print(url)
         http_client = tornado.httpclient.AsyncHTTPClient()
         response = yield http_client.fetch(url, method="POST", body=ciphertext)
         print(len(ciphertext), ciphertext)
+
+        # update
+        data = json.loads(cleartext)
+        data["filename"] = [sha1, len(ciphertext), groupid, time.time()]
+
+        # encode
+        content = json.dumps(data).encode("utf8")
+        ciphertext, capsule = pre.encrypt(vk, content)
+        folder_size = str(len(ciphertext))
+        block_size = len(ciphertext)
+        folder_hash = hashlib.sha1(ciphertext).hexdigest()
+        folder_hash_binary = bin(int(folder_hash, 16))[2:].zfill(32*4)
+        addr, groupid = yield get_group(folder_hash_binary)
+        print("ciphertext", len(ciphertext), "capsule", capsule.to_bytes().hex())
+
+        # put
+        timestamp = time.time()
+        sk_sign = signing.Signer(sk)
+        signature = sk_sign(str(timestamp).encode("utf8"))
+        assert signature.verify(str(timestamp).encode("utf8"), vk)
+
+        url = "http://%s:%s/user?user_id=%s&folder_hash=%s&block_size=%s&folder_size=%s&groupid=%s&capsule=%s&timestamp=%s&signature=%s" \
+                % (tuple(addr)+(user_id, folder_hash, block_size, folder_size, groupid, capsule.to_bytes().hex(), timestamp, bytes(signature).hex()))
+        try:
+            response = yield http_client.fetch(url, method="POST", body=ciphertext)
+        except Exception as e:
+            print("Error: %s" % e)
+
 
 class DashboardHandler(tornado.web.RequestHandler):
     def get(self):

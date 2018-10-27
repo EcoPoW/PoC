@@ -36,6 +36,7 @@ class Application(tornado.web.Application):
                     # mtfs
                     (r"/user", fs.UserHandler),
                     (r"/object", fs.ObjectHandler),
+                    (r"/capsule", fs.CapsuleHandler),
                     ]
         settings = {"debug":True}
 
