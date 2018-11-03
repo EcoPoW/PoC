@@ -1,7 +1,6 @@
 from __future__ import print_function
 
 import time
-import json
 import uuid
 
 import tornado.web
@@ -9,6 +8,7 @@ import tornado.websocket
 import tornado.ioloop
 import tornado.httpclient
 import tornado.gen
+import tornado.escape
 
 import setting
 import tree
@@ -23,7 +23,7 @@ def forward(seq):
     # if msg_id in processed_message_ids:
     #     return
     # processed_message_ids.add(msg_id)
-    msg = json.dumps(seq)
+    msg = tornado.escape.json_encode(seq)
 
     for leader_node in LeaderHandler.leader_nodes:
         leader_node.write_message(msg)
@@ -61,7 +61,7 @@ class LeaderHandler(tornado.websocket.WebSocketHandler):
 
     @tornado.gen.coroutine
     def on_message(self, msg):
-        seq = json.loads(msg)
+        seq = tornado.escape.json_decode(msg)
         print(tree.current_port, "on message from leader connector", seq)
 
         if seq[0] == "NEW_BLOCK":
@@ -116,7 +116,7 @@ class LeaderConnector(object):
                 tornado.ioloop.IOLoop.instance().call_later(1.0, self.connect)
             return
 
-        seq = json.loads(msg)
+        seq = tornado.escape.json_decode(msg)
         print(tree.current_port, "on message from leader", seq)
 
         if seq[0] == "NEW_BLOCK":

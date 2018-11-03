@@ -5,7 +5,6 @@ import time
 import socket
 import subprocess
 import argparse
-import json
 import uuid
 import hashlib
 
@@ -14,7 +13,7 @@ import tornado.web
 import tornado.ioloop
 import tornado.options
 import tornado.httpserver
-# import tornado.httpclient
+import tornado.escape
 import tornado.gen
 
 # from ecdsa import VerifyingKey, NIST384p
@@ -61,7 +60,7 @@ def mining():
         return
 
     for i in range(100):
-        block_hash = hashlib.sha256((identity + json.dumps(data) + longest_hash + str(difficulty) + str(nonce)).encode('utf8')).hexdigest()
+        block_hash = hashlib.sha256((identity + tornado.escape.json_encode(data) + longest_hash + str(difficulty) + str(nonce)).encode('utf8')).hexdigest()
         if int(block_hash, 16) < int("1" * (256-difficulty), 2):
             if longest:
                 print(len(longest), longest[-1].timestamp, longest[0].timestamp, longest[-1].timestamp - longest[0].timestamp)
@@ -151,7 +150,7 @@ class UserHandler(tornado.web.RequestHandler):
         #     res["node"] = [groupid, tree.node_neighborhoods[group_id]]
         longest = miner.longest_chain() or []
         for block in longest:
-            data = json.loads(block["data"])
+            data = tornado.escape.json_decode(block["data"])
             if data["user_id"] == user_id:
                 self.finish(data)
                 break

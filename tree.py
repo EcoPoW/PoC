@@ -4,7 +4,6 @@ import time
 import socket
 import subprocess
 import argparse
-import json
 import uuid
 import functools
 
@@ -13,6 +12,7 @@ import tornado.websocket
 import tornado.ioloop
 import tornado.httpclient
 import tornado.gen
+import tornado.escape
 
 import setting
 import miner
@@ -43,7 +43,7 @@ def forward(seq):
     if msg_id in processed_message_ids:
         return
     processed_message_ids.add(msg_id)
-    msg = json.dumps(seq)
+    msg = tornado.escape.json_encode(seq)
 
     for child_node in NodeHandler.child_nodes.values():
         # if not child_node.stream.closed:
@@ -106,10 +106,10 @@ class NodeHandler(tornado.websocket.WebSocketHandler):
 
         buddies = list(available_children_buddies.get(self.branch, set()))
         message = ["GROUP_ID", self.branch, buddies, uuid.uuid4().hex]
-        self.write_message(json.dumps(message))
+        self.write_message(tornado.escape.json_encode(message))
 
         message = ["NODE_PARENTS", node_parents]
-        self.write_message(json.dumps(message))
+        self.write_message(tornado.escape.json_encode(message))
 
         available_children_buddies.setdefault(self.branch, set()).add((self.from_host, self.from_port))
 
@@ -137,7 +137,7 @@ class NodeHandler(tornado.websocket.WebSocketHandler):
         global current_groupid
         global node_neighborhoods
 
-        seq = json.loads(msg)
+        seq = tornado.escape.json_decode(msg)
         # print(current_port, "on message from child", seq)
         if seq[0] == "DISCARDED_BRANCHES":
             for i in seq[1]:
@@ -209,12 +209,12 @@ class NodeConnector(object):
             available_branches.add(tuple([current_host, current_port, self.branch+"1"]))
 
             message = ["AVAILABLE_BRANCHES", [[current_host, current_port, self.branch+"0"], [current_host, current_port, self.branch+"1"]], uuid.uuid4().hex]
-            self.conn.write_message(json.dumps(message))
+            self.conn.write_message(tornado.escape.json_encode(message))
 
             if current_groupid is not None:
                 available_buddies.add(tuple([current_host, current_port]))
                 message = ["NODE_NEIGHBOURHOODS", current_groupid, list(available_buddies), uuid.uuid4().hex]
-                self.conn.write_message(json.dumps(message))
+                self.conn.write_message(tornado.escape.json_encode(message))
 
         except:
             print(current_port, "NodeConnector reconnect ...")
@@ -242,7 +242,7 @@ class NodeConnector(object):
             tornado.ioloop.IOLoop.instance().call_later(1.0, self.connect)
             return
 
-        seq = json.loads(msg)
+        seq = tornado.escape.json_decode(msg)
         # print(current_port, "on message from parent", seq)
         if seq[0] == "DISCARDED_BRANCHES":
             for i in seq[1]:
@@ -273,7 +273,7 @@ class NodeConnector(object):
             for h, p in buddies_left:
                 BuddyConnector(h, p)
 
-            control_node.write_message(json.dumps(["ADDRESS2", current_host, current_port, current_groupid]))#传branch！！！！！！！！！！！！！！！！！！
+            control_node.write_message(tornado.escape.json_encode(["ADDRESS2", current_host, current_port, current_groupid]))#传branch！！！！！！！！！！！！！！！！！！
 
             available_children_buddies.setdefault(current_groupid, set()).add((current_host, current_port))
             print(current_port, "GROUP_ID", current_groupid, seq[3])
@@ -282,7 +282,7 @@ class NodeConnector(object):
 
             if self.conn is not None:
                 message = ["NODE_NEIGHBOURHOODS", current_groupid, list(available_buddies), uuid.uuid4().hex]
-                self.conn.write_message(json.dumps(message))
+                self.conn.write_message(tornado.escape.json_encode(message))
             return
 
         elif seq[0] == "NODE_PARENTS":
@@ -336,11 +336,11 @@ class BuddyHandler(tornado.websocket.WebSocketHandler):
 
         available_buddies.add(tuple([self.from_host, self.from_port]))
         message = ["GROUP_ID_FOR_BUDDY", current_groupid, list(available_buddies), uuid.uuid4().hex]
-        self.write_message(json.dumps(message))
+        self.write_message(tornado.escape.json_encode(message))
 
         # maybe it's wrong, we should tell buddy all the available branches existing
         message = ["AVAILABLE_BRANCHES", [[current_host, current_port, current_groupid+"0"], [current_host, current_port, current_groupid+"1"]], uuid.uuid4().hex]
-        self.write_message(json.dumps(message))
+        self.write_message(tornado.escape.json_encode(message))
 
     def on_close(self):
         print(current_port, "buddy disconnected")
@@ -350,7 +350,7 @@ class BuddyHandler(tornado.websocket.WebSocketHandler):
 
     @tornado.gen.coroutine
     def on_message(self, msg):
-        seq = json.loads(msg)
+        seq = tornado.escape.json_decode(msg)
         print(current_port, "on message from buddy connector", seq)
         if seq[0] == "DISCARDED_BRANCHES":
             for i in seq[1]:
@@ -407,7 +407,7 @@ class BuddyConnector(object):
 
         if self.branch is not None:
             message = ["AVAILABLE_BRANCHES", [[current_host, current_port, self.branch+"0"], [current_host, current_port, self.branch+"1"]], uuid.uuid4().hex]
-            self.conn.write_message(json.dumps(message))
+            self.conn.write_message(tornado.escape.json_encode(message))
 
     def on_message(self, msg):
         global available_branches
@@ -419,7 +419,7 @@ class BuddyConnector(object):
             tornado.ioloop.IOLoop.instance().call_later(1.0, self.connect)
             return
 
-        seq = json.loads(msg)
+        seq = tornado.escape.json_decode(msg)
         print(current_port, "on message from buddy", seq)
         if seq[0] == "DISCARDED_BRANCHES":
             for i in seq[1]:
@@ -453,7 +453,7 @@ class BuddyConnector(object):
 
             if self.conn is not None:
                 message = ["AVAILABLE_BRANCHES", [[current_host, current_port, self.branch+"0"], [current_host, current_port, self.branch+"1"]], uuid.uuid4().hex]
-                self.conn.write_message(json.dumps(message))
+                self.conn.write_message(tornado.escape.json_encode(message))
             return
 
         elif seq[0] == "NEW_BLOCK":
@@ -469,7 +469,7 @@ def on_connect(future):
 
     try:
         control_node = future.result()
-        control_node.write_message(json.dumps(["ADDRESS", current_host, current_port]))
+        control_node.write_message(tornado.escape.json_encode(["ADDRESS", current_host, current_port]))
     except:
         tornado.ioloop.IOLoop.instance().call_later(1.0, connect)
 
@@ -483,7 +483,7 @@ def bootstrap(addr):
         response = yield http_client.fetch("http://%s:%s/available_branches" % tuple(addr))
     except Exception as e:
         print("Error: %s" % e)
-    result = json.loads(response.body)
+    result = tornado.escape.json_decode(response.body)
     branches = result["available_branches"]
     branches.sort(key=lambda l:len(l[2]))
     print(current_port, "fetch result", [tuple(i) for i in branches])
@@ -506,7 +506,7 @@ def on_message(msg):
         tornado.ioloop.IOLoop.instance().call_later(1.0, connect)
         return
 
-    seq = json.loads(msg)
+    seq = tornado.escape.json_decode(msg)
     print(current_port, "node on message", seq)
     if seq[0] == "BOOTSTRAP_ADDRESS":
         if not seq[1]:

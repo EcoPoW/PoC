@@ -4,7 +4,6 @@ import os
 import subprocess
 import time
 import socket
-import json
 import argparse
 import random
 import uuid
@@ -18,6 +17,7 @@ import tornado.ioloop
 import tornado.options
 import tornado.httpserver
 import tornado.gen
+import tornado.escape
 
 # from ecdsa import SigningKey, NIST384p
 from umbral import pre, keys, signing
@@ -85,22 +85,22 @@ class NewTxHandler(tornado.web.RequestHandler):
                 "amount": amount
             }
             print(transaction)
-            signature = sk.sign(json.dumps(transaction).encode('utf-8'))
+            signature = sk.sign(tornado.escape.json_encode(transaction).encode('utf-8'))
             data = {
                 "transaction": transaction,
                 "signature": str(base64.b64encode(signature), encoding="utf-8")
             }
 
-            assert vk.verify(signature, json.dumps(transaction).encode('utf-8'))
+            assert vk.verify(signature, tornado.escape.json_encode(transaction).encode('utf-8'))
 
             known_addresses_list = list(ControlHandler.known_addresses)
             addr = random.choice(known_addresses_list)
             http_client = tornado.httpclient.AsyncHTTPClient()
             try:
-                response = yield http_client.fetch("http://%s:%s/new_tx" % tuple(addr), method="POST", body=json.dumps(data))
+                response = yield http_client.fetch("http://%s:%s/new_tx" % tuple(addr), method="POST", body=tornado.escape.json_encode(data))
             except Exception as e:
                 print("Error: %s" % e)
-            # result = json.loads(response.body)
+            # result = tornado.escape.json_decode(response.body)
             # branches = result["available_branches"]
 
             self.write("%s\n" % response.body)
@@ -129,11 +129,11 @@ class GetUserHandler(tornado.web.RequestHandler):
         url = "http://%s:%s/user?user_id=%s&signature=%s&timestamp=%s" % (tuple(addr)+(vk.to_bytes().hex(), bytes(signature).hex(), str(timestamp)))
         # print(url)
         try:
-            response = yield http_client.fetch(url)#, method="POST", body=json.dumps(data)
+            response = yield http_client.fetch(url)#, method="POST", body=tornado.escape.json_encode(data)
         except Exception as e:
             print("Error: %s" % e)
 
-        self.finish(json.loads(response.body))
+        self.finish(tornado.escape.json_decode(response.body))
 
 class NewUserHandler(tornado.web.RequestHandler):
     @tornado.gen.coroutine
@@ -155,7 +155,7 @@ class NewUserHandler(tornado.web.RequestHandler):
         url = "http://%s:%s/user?user_id=%s&signature=%s&timestamp=%s" % (tuple(addr)+(user_id, bytes(signature).hex(), str(timestamp)))
         # print(url)
         try:
-            response = yield http_client.fetch(url)#, method="POST", body=json.dumps(data)
+            response = yield http_client.fetch(url)#, method="POST", body=tornado.escape.json_encode(data)
         except Exception as e:
             print("Error: %s" % e)
 
@@ -190,11 +190,11 @@ class NewFileHandler(tornado.web.RequestHandler):
         while True:
             url = "http://%s:%s/get_group?groupid=%s" % (tuple(addr)+(sha1_binary,))
             try:
-                response = yield http_client.fetch(url)#, method="POST", body=json.dumps(data)
+                response = yield http_client.fetch(url)#, method="POST", body=tornado.escape.json_encode(data)
             except Exception as e:
                 print("Error: %s" % e)
             print(addr, response.body)
-            res = json.loads(response.body)
+            res = tornado.escape.json_decode(response.body)
             if res["groupid"] == res["current_groupid"]:
                 break
             addr = res["address"][0]
@@ -234,7 +234,7 @@ class ControlHandler(tornado.websocket.WebSocketHandler):
 
     @tornado.gen.coroutine
     def on_message(self, msg):
-        seq = json.loads(msg)
+        seq = tornado.escape.json_decode(msg)
         print("control on message", seq)
         if seq[0] == u"ADDRESS":
             self.addr = tuple(seq[1:3])
@@ -242,7 +242,7 @@ class ControlHandler(tornado.websocket.WebSocketHandler):
             known_addresses_list = list(ControlHandler.known_addresses)
             random.shuffle(known_addresses_list)
             # known_addresses_list.sort(key=lambda l:int(l[1]))
-            self.write_message(json.dumps(["BOOTSTRAP_ADDRESS", known_addresses_list[:3]]))
+            self.write_message(tornado.escape.json_encode(["BOOTSTRAP_ADDRESS", known_addresses_list[:3]]))
             ControlHandler.known_addresses[self.addr] = self
             # print(ControlHandler.known_addresses)
         elif seq[0]:

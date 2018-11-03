@@ -1,7 +1,6 @@
 from __future__ import print_function
 
 import time
-import json
 import uuid
 import hashlib
 import copy
@@ -11,7 +10,7 @@ import tornado.websocket
 import tornado.ioloop
 import tornado.httpclient
 import tornado.gen
-
+import tornado.escape
 
 import setting
 import tree
@@ -102,7 +101,7 @@ def mining():
 def new_block(seq):
     msg_header, block_hash, longest_hash, nonce, difficulty, identity, timestamp, data, msg_id = seq
     try:
-        database.connection.execute("INSERT INTO chain"+tree.current_port+" (hash, prev_hash, nonce, difficulty, identity, timestamp, data) VALUES (%s, %s, %s, %s, %s, %s, %s)", block_hash, longest_hash, nonce, difficulty, identity, timestamp, json.dumps(data))
+        database.connection.execute("INSERT INTO chain"+tree.current_port+" (hash, prev_hash, nonce, difficulty, identity, timestamp, data) VALUES (%s, %s, %s, %s, %s, %s, %s)", block_hash, longest_hash, nonce, difficulty, identity, timestamp, tornado.escape.json_encode(data))
     except:
         pass
 

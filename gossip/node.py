@@ -4,7 +4,6 @@ import time
 import socket
 import subprocess
 import argparse
-import json
 import uuid
 
 import tornado.web
@@ -14,6 +13,7 @@ import tornado.options
 import tornado.httpserver
 import tornado.httpclient
 import tornado.gen
+import tornado.escape
 
 
 processed_message_ids = set()
@@ -32,7 +32,7 @@ def talk_to_random(msg):
     response = yield http_client.fetch("http://%s:%s/peer" % tuple(node), method="POST", body=msg)
     # except Exception as e:
     #     print("Error: %s" % e)
-    # result = json.loads(response.body)
+    # result = tornado.escape.json_decode(response.body)
     # print(response.body)
     tornado.ioloop.IOLoop.instance().call_later(0.1, talk_to_random, msg)
 
@@ -53,7 +53,7 @@ class BroadcastHandler(tornado.web.RequestHandler):
     def get(self):
         test_msg = ["TEST_MSG", time.time(), uuid.uuid4().hex]
 
-        talk_to_random(json.dumps(test_msg))
+        talk_to_random(tornado.escape.json_encode(test_msg))
         self.finish({"test_msg": test_msg})
 
 class DashboardHandler(tornado.web.RequestHandler):
@@ -96,12 +96,12 @@ class PeerHandler(tornado.web.RequestHandler):
     def post(self):
         global processed_message_ids
 
-        message = json.loads(self.request.body)
+        message = tornado.escape.json_decode(self.request.body)
         message_id = message[-1]
         if message_id in processed_message_ids:
             return
         processed_message_ids.add(message_id)
-        control_node.write_message(json.dumps(["REPORT", current_host, current_port]))
+        control_node.write_message(tornado.escape.json_encode(["REPORT", current_host, current_port]))
 
         tornado.ioloop.IOLoop.instance().call_later(0.1, talk_to_random, self.request.body)
 
@@ -112,7 +112,7 @@ def on_connect(future):
 
     try:
         control_node = future.result()
-        control_node.write_message(json.dumps(["ADDRESS", current_host, current_port]))
+        control_node.write_message(tornado.escape.json_encode(["ADDRESS", current_host, current_port]))
     except:
         tornado.ioloop.IOLoop.instance().call_later(1.0, connect)
 
@@ -124,7 +124,7 @@ def on_message(msg):
         tornado.ioloop.IOLoop.instance().call_later(1.0, connect)
         return
 
-    seq = json.loads(msg)
+    seq = tornado.escape.json_decode(msg)
     print(current_port, "node on message", seq)
     if seq[0] == "BOOTSTRAP_ADDRESS":
         known_nodes = seq[1]

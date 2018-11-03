@@ -4,7 +4,6 @@ import time
 import socket
 import subprocess
 import argparse
-import json
 import uuid
 
 import tornado.web
@@ -14,6 +13,7 @@ import tornado.options
 import tornado.httpserver
 # import tornado.httpclient
 import tornado.gen
+import tornado.escape
 
 import setting
 import tree
@@ -96,7 +96,7 @@ class BroadcastHandler(tornado.web.RequestHandler):
 
 class NewTxHandler(tornado.web.RequestHandler):
     def post(self):
-        tx = json.loads(self.request.body)
+        tx = tornado.escape.json_decode(self.request.body)
 
         tree.forward(["NEW_TX", tx, time.time(), uuid.uuid4().hex])
         self.finish({"txid": tx["transaction"]["txid"]})

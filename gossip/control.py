@@ -3,7 +3,6 @@ from __future__ import print_function
 import subprocess
 import time
 import socket
-import json
 import argparse
 import random
 
@@ -13,6 +12,7 @@ import tornado.ioloop
 import tornado.options
 import tornado.httpserver
 import tornado.gen
+import tornado.escape
 
 incremental_port = 8001
 message_nodes = set()
@@ -47,7 +47,7 @@ class FollowFriendsHandler(tornado.web.RequestHandler):
         count = int(self.get_argument("n", "3"))
         for i in ControlHandler.known_addresses.values():
             random.shuffle(known_addresses_list)
-            i.write_message(json.dumps(["BOOTSTRAP_ADDRESS", known_addresses_list[:count]]))
+            i.write_message(tornado.escape.json_encode(["BOOTSTRAP_ADDRESS", known_addresses_list[:count]]))
 
 
 class DashboardHandler(tornado.web.RequestHandler):
@@ -82,7 +82,7 @@ class ControlHandler(tornado.websocket.WebSocketHandler):
     def on_message(self, msg):
         global message_nodes
 
-        seq = json.loads(msg)
+        seq = tornado.escape.json_decode(msg)
         # print("control on message", seq)
         if seq[0] == u"ADDRESS":
             self.addr = tuple(seq[1:3])
