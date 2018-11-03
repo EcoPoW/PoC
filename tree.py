@@ -273,6 +273,8 @@ class NodeConnector(object):
             for h, p in buddies_left:
                 BuddyConnector(h, p)
 
+            control_node.write_message(json.dumps(["ADDRESS2", current_host, current_port, current_groupid]))#传branch！！！！！！！！！！！！！！！！！！
+
             available_children_buddies.setdefault(current_groupid, set()).add((current_host, current_port))
             print(current_port, "GROUP_ID", current_groupid, seq[3])
             node_parents[current_groupid] = [list(i) for i in available_buddies]

@@ -1,8 +1,116 @@
 <html>
 
+<header>
+<script src="/static/js/jquery-1.12.4.js"></script>
+<script src="/static/js/springy2.js"></script>
+<script src="/static/js/springyui2.js"></script>
+
+
+<style>
+.font_bk{border:1px solid #ccc;}
+#header {
+    background-color:black;
+    color:white;
+    text-align:center;
+    padding:5px;
+}
+#footer {
+    background-color:black;
+    color:white;
+    clear:both;
+    text-align:center;
+    padding:5px; 
+}
+html,body{
+    width: 100%;
+    height: 100%;
+    margin: 0;
+}
+</style>
+</header>
 <body>
-    <h1>Tree</h1>
-    Hello
+
+<div id="header">
+    <button id="new_node">New node</button>
+</div>
+<canvas id="springydemo" style="border:none;  width:99%; height:90%; ">
+<div id="footer">
+    Welcome.
+</div>
+
+<script>
+
+
+$(function(){
+    var nodes_by_port = {};
+    var nodes = {};
+
+    function send(message) {
+        if (socket.readyState == WebSocket.OPEN) {
+            socket.send(message);
+        } else {
+            console.log("The socket is not open.");
+        }
+    }
+
+    if (!window.WebSocket) {
+        window.WebSocket = window.MozWebSocket;
+    }
+
+    url = "ws://"+location.host+"/visualize_data";
+    socket = new WebSocket(url);
+
+    socket.onmessage = function(event) {
+        seq = JSON.parse(event.data);
+
+        if(seq[0] == "ADDRESS"){
+            if(nodes[""] == undefined){
+                port = seq[2];
+                node = graph.newNode({label: port});
+                nodes[""] = node;
+                nodes_by_port[port] = node;
+            }
+
+        }else if(seq[0] == "ADDRESS2"){
+            port = seq[2];
+            groupid = seq[3];
+            node = graph.newNode({label: port});
+            nodes_by_port[port] = node;
+            nodes[groupid] = node;
+            if(groupid != ""){
+                parent_groupid = groupid.substring(0, groupid.length-1);
+                // console.log(nodes[parent_groupid]);
+                graph.newEdge(nodes[groupid], nodes[parent_groupid], {color: '#3399FF'});
+            }
+        }
+    };
+
+    socket.onopen = function(event) {};
+    socket.onclose = function(event) {};
+
+    canvas = document.getElementById("springydemo");
+    rects = canvas.getClientRects();
+    rect = rects[0];
+    canvas.height = rect.height;
+    canvas.width = rect.width;
+
+    var graph = new Springy.Graph();
+    var springy = window.springy = $('#springydemo').springy({
+        graph: graph,
+        nodeSelected: function(node){
+            console.log('Node selected: ' + JSON.stringify(node.data));
+        }
+    });
+
+    $("#new_node").click(function() {
+        xmlhttp = new XMLHttpRequest();
+        xmlhttp.onreadystatechange = function(){};
+        xmlhttp.open("GET", "/new_node", true);
+        xmlhttp.send(null);
+    })
+});
+
+</script>
 
 </body>
 </html>

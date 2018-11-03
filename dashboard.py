@@ -56,6 +56,8 @@ class Application(tornado.web.Application):
                     (r"/get_user", GetUserHandler),
                     (r"/new_user", NewUserHandler),
                     (r"/new_file", NewFileHandler),
+                    (r"/visualize", VisualizeHandler),
+                    (r"/visualize_data", VisualizeDataHandler),
                     (r"/static/(.*)", tornado.web.StaticFileHandler, dict(path=settings['static_path'])),
                     ]
 
@@ -316,7 +318,7 @@ class ControlHandler(tornado.websocket.WebSocketHandler):
     def on_message(self, msg):
         seq = json.loads(msg)
         print("control on message", seq)
-        if seq[0] == u"ADDRESS":
+        if seq[0] == "ADDRESS":
             self.addr = tuple(seq[1:3])
             # print(self.addr)
             known_addresses_list = list(ControlHandler.known_addresses)
@@ -325,8 +327,53 @@ class ControlHandler(tornado.websocket.WebSocketHandler):
             self.write_message(json.dumps(["BOOTSTRAP_ADDRESS", known_addresses_list[:3]]))
             ControlHandler.known_addresses[self.addr] = self
             # print(ControlHandler.known_addresses)
-        elif seq[0]:
+        elif seq[0] == "ADDRESS2":
             pass
+
+        for w in VisualizeDataHandler.waiters:
+            w.write_message(msg)
+
+
+class VisualizeHandler(tornado.web.RequestHandler):
+    def get(self):
+        # global control_node
+        self.messages = VisualizeDataHandler.cache
+        self.render("index.html")
+
+
+class VisualizeDataHandler(tornado.websocket.WebSocketHandler):
+    waiters = set()
+    cache = []
+    cache_size = 200
+
+    def open(self):
+        # print ("new client opened")
+        VisualizeDataHandler.waiters.add(self)
+
+    def on_close(self):
+        VisualizeDataHandler.waiters.remove(self)
+
+    @classmethod
+    def update_cache(cls, msg):
+        cls.cache.append(msg)
+        if len(cls.cache) > cls.cache_size:
+            cls.cache = cls.cache[-cls.cache_size:]
+
+    @classmethod
+    def send_updates(cls, msg):
+        print("sending message to waiters", len(cls.waiters))
+        # logging.info("sending message to %d waiters", len(cls.waiters))
+        for waiter in cls.waiters:
+            try:
+                waiter.write_message(msg)
+            except:
+                logging.error("Error sending message", exc_info=True)
+
+    def on_message(self, message):
+        # logging.info("got message %r", message)
+        print("got message ", message)
+        # self.write("<br>current_groupid: %s <br>" % message)
+        VisualizeDataHandler.send_updates(message)
 
 
 def main():
