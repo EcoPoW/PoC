@@ -42,8 +42,6 @@ jQuery.fn.springy = function(params) {
 
 	var layout = this.layout = new Springy.Layout.ForceDirected(graph, stiffness, repulsion, damping, minEnergyThreshold);
 
-
-	
 	// calculate bounding box of graph layout.. with ease-in
 	var currentBB = layout.getBoundingBox();
 	var targetBB = {bottomleft: new Springy.Vector(-2, -2), topright: new Springy.Vector(2, 2)};
@@ -77,7 +75,7 @@ jQuery.fn.springy = function(params) {
 		return new Springy.Vector(px, py);
 	};
 
-	// half-assed drag and drop 一半的拖拽
+	// half-assed drag and drop
 	var selected = null;
 	var nearest = null;
 	var dragged = null;
@@ -98,7 +96,7 @@ jQuery.fn.springy = function(params) {
 		renderer.start();
 	});
 
-	// Basic double click handler 双击效应
+	// Basic double click handler
 	jQuery(canvas).dblclick(function(e) {
 		var pos = jQuery(this).offset();
 		var p = fromScreen({x: e.pageX - pos.left, y: e.pageY - pos.top});
@@ -128,8 +126,6 @@ jQuery.fn.springy = function(params) {
 
 	var getTextWidth = function(node) {
 		var text = (node.data.label !== undefined) ? node.data.label : node.id;
-		// console.log(text);
-
 		if (node._width && node._width[text])
 			return node._width[text];
 
@@ -184,16 +180,10 @@ jQuery.fn.springy = function(params) {
 		return width;
 	}
 
-
-
-	//////////////////////////////////////////////////渲染啊
-	var nodeId=1;
 	var renderer = this.renderer = new Springy.Renderer(layout,
 		function clear() {
 			ctx.clearRect(0,0,canvas.width,canvas.height);
-			
 		},
-		/////////////////////////////////////////////////////////画边
 		function drawEdge(edge, p1, p2) {
 			var x1 = toScreen(p1).x;
 			var y1 = toScreen(p1).y;
@@ -304,10 +294,9 @@ jQuery.fn.springy = function(params) {
 		},
 		function drawNode(node, p) {
 			var s = toScreen(p);
-			
+
 			ctx.save();
-			
-			
+
 			// Pulled out the padding aspect sso that the size functions could be used in multiple places
 			// These should probably be settable by the user (and scoped higher) but this suffices for now
 			var paddingX = 6;
@@ -315,48 +304,31 @@ jQuery.fn.springy = function(params) {
 
 			var contentWidth = node.getWidth();
 			var contentHeight = node.getHeight();
-			// var boxWidth = contentWidth + paddingX;
-			// var boxHeight = contentHeight + paddingY;
-			var boxWidth = contentWidth ;
-			var boxHeight = contentHeight ;
+			var boxWidth = contentWidth + paddingX;
+			var boxHeight = contentHeight + paddingY;
 
 			// clear background
-			// ctx.clearRect(s.x - boxWidth/2, s.y - boxHeight/2, boxWidth, boxHeight);老的
+			ctx.clearRect(s.x - boxWidth/2, s.y - boxHeight/2, boxWidth, boxHeight);
 
 			// fill background
-			// if (selected !== null && selected.node !== null && selected.node.id === node.id) {
-			// 	ctx.fillStyle = "green";//点击后的颜色
-			// } else if (nearest !== null && nearest.node !== null && nearest.node.id === node.id) {
-			// 	ctx.fillStyle = "YELLOW";//鼠标靠近变色
-			// } else {
-			// 	ctx.fillStyle = "pink";//鼠标不靠近时的颜色
-			// }
-
-			if (node.color != undefined){
-				ctx.fillStyle = node.color;
-				if (selected !== null && selected.node !== null && selected.node.id === node.id) {
-					ctx.fillStyle = "green";//点击后的颜色
-				} else if (nearest !== null && nearest.node !== null && nearest.node.id === node.id) {
-					ctx.fillStyle = "YELLOW";//鼠标靠近变色
-				}
+			if (selected !== null && selected.node !== null && selected.node.id === node.id) {
+				ctx.fillStyle = "#FFFFE0";
+			} else if (nearest !== null && nearest.node !== null && nearest.node.id === node.id) {
+				ctx.fillStyle = "#EEEEEE";
+			} else {
+				ctx.fillStyle = "#FFFFFF";
 			}
 
-			ctx.beginPath();
-			ctx.arc(s.x ,s.y,20,0,Math.PI*2,true);
-			ctx.closePath();
-			ctx.fill();
-			
-			// ctx.fillRect(s.x - boxWidth/2, s.y - boxHeight/2, boxWidth+100, boxHeight+100);// 等于是后续给节点开辟出来的区域。老的
+			ctx.fillRect(s.x - boxWidth/2, s.y - boxHeight/2, boxWidth, boxHeight);
 
 			if (node.data.image == undefined) {
 				ctx.textAlign = "left";
 				ctx.textBaseline = "top";
 				ctx.font = (node.data.font !== undefined) ? node.data.font : nodeFont;
-				ctx.fillStyle = (node.data.color !== undefined) ? node.data.color : "blue";//字体的颜色
+				ctx.fillStyle = (node.data.color !== undefined) ? node.data.color : "#000000";
 				var text = (node.data.label !== undefined) ? node.data.label : node.id;
 				ctx.fillText(text, s.x - contentWidth/2, s.y - contentHeight/2);
-			}
-			else {
+			} else {
 				// Currently we just ignore any labels if the image object is set. One might want to extend this logic to allow for both, or other composite nodes.
 				var src = node.data.image.src;  // There should probably be a sanity check here too, but un-src-ed images aren't exaclty a disaster.
 				if (src in nodeImages) {
@@ -377,7 +349,6 @@ jQuery.fn.springy = function(params) {
 					img.src = src;
 				}
 			}
-			
 			ctx.restore();
 		}
 	);
