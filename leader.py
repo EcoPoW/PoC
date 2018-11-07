@@ -128,7 +128,10 @@ class LeaderConnector(object):
 transactions = []
 def mining():
     # global working
-    # print(tree.current_port, working)
+    # print(tree.current_port, "leader transactions", transactions)
+    if transactions:
+        transaction = transactions.pop(0)
+        print(tree.current_port, transaction[1]["transaction"]["txid"])
     if working:
         tornado.ioloop.IOLoop.instance().call_later(1, mining)
 

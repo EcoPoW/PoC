@@ -108,11 +108,11 @@ class NewTxHandler(tornado.web.RequestHandler):
                 "timestamp": timestamp,
                 "amount": amount
             }
-            print(transaction)
+            # print(transaction)
             # signature = sk.sign(tornado.escape.json_encode(transaction).encode('utf-8'))
             sk_sign = signing.Signer(sk)
             signature = sk_sign(str(timestamp).encode("utf8"))
-            print(bytes(signature).hex())
+            # print(bytes(signature).hex())
             data = {
                 "transaction": transaction,
                 "signature": bytes(signature).hex()

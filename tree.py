@@ -156,15 +156,17 @@ class NodeHandler(tornado.websocket.WebSocketHandler):
                 return
             hosts = node_neighborhoods.get(groupid, [])
             node_neighborhoods[groupid] = [list(i) for i in set([tuple(i) for i in hosts+seq[2]])]
-            print(current_port, "NODE_NEIGHBOURHOODS", current_groupid, groupid, node_neighborhoods)
+            # print(current_port, "NODE_NEIGHBOURHOODS", current_groupid, groupid, node_neighborhoods)
 
         elif seq[0] == "NEW_BLOCK":
             miner.new_block(seq)
 
         elif seq[0] == "NEW_TX":
-            if (current_host, current_port) in leader.current_leaders:
+            txid = seq[1]["transaction"]["txid"]
+            if (current_host, current_port) in leader.current_leaders and txid not in processed_message_ids:
+                processed_message_ids.add(txid)
                 leader.transactions.append(seq)
-                print(current_port, "txid", seq[1]["transaction"]["txid"])
+                print(current_port, "tx msg", seq)
 
         elif seq[0] == "UPDATE_HOME":
             fs.transactions.append(seq)
@@ -278,7 +280,7 @@ class NodeConnector(object):
             available_children_buddies.setdefault(current_groupid, set()).add((current_host, current_port))
             print(current_port, "GROUP_ID", current_groupid, seq[3])
             node_parents[current_groupid] = [list(i) for i in available_buddies]
-            print(current_port, "NODE_PARENTS", node_parents[current_groupid])
+            # print(current_port, "NODE_PARENTS", node_parents[current_groupid])
 
             if self.conn is not None:
                 message = ["NODE_NEIGHBOURHOODS", current_groupid, list(available_buddies), uuid.uuid4().hex]
@@ -287,7 +289,7 @@ class NodeConnector(object):
 
         elif seq[0] == "NODE_PARENTS":
             node_parents.update(seq[1])
-            print(current_port, "NODE_PARENTS", node_parents)
+            # print(current_port, "NODE_PARENTS", node_parents)
 
             for child_node in NodeHandler.child_nodes.values():
                 child_node.write_message(msg)
@@ -299,15 +301,17 @@ class NodeConnector(object):
                 return
             hosts = node_neighborhoods.get(groupid, [])
             node_neighborhoods[groupid] = [list(i) for i in set([tuple(i) for i in hosts+seq[2]])]
-            print(current_port, "NODE_NEIGHBOURHOODS", current_groupid, groupid, node_neighborhoods)
+            # print(current_port, "NODE_NEIGHBOURHOODS", current_groupid, groupid, node_neighborhoods)
 
         elif seq[0] == "NEW_BLOCK":
             miner.new_block(seq)
 
         elif seq[0] == "NEW_TX":
-            if (current_host, current_port) in leader.current_leaders:
+            txid = seq[1]["transaction"]["txid"]
+            if (current_host, current_port) in leader.current_leaders and txid not in processed_message_ids:
+                processed_message_ids.add(txid)
                 leader.transactions.append(seq)
-                print(current_port, "txid", seq[1]["transaction"]["txid"])
+                print(current_port, "tx msg", seq)
 
         # else:
         forward(seq)
