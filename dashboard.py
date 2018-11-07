@@ -71,6 +71,7 @@ class NewNodeHandler(tornado.web.RequestHandler):
             incremental_port += 1
             subprocess.Popen(["python3", "node.py", "--port=%s"%incremental_port, "--control_port=8000"])
             self.write("new node %s\n" % incremental_port)
+            time.sleep(0.5)
         self.finish()
 
 class NewTxHandler(tornado.web.RequestHandler):
@@ -81,38 +82,43 @@ class NewTxHandler(tornado.web.RequestHandler):
         for i in range(count):
             i = random.randint(1, USER_NO)
             # sk_filename = sys.argv[1]
-            sk_filename = "p" + str(i) + ".pem"
-            sk = SigningKey.from_pem(open("data/pk/"+sk_filename).read())
+            sk_filename = "pk" + str(i)
+            # sk = SigningKey.from_pem(open("data/pk/"+sk_filename).read())
+            sk = keys.UmbralPrivateKey.from_bytes(bytes.fromhex(open("data/pk/"+sk_filename).read()))
 
             j = i
             while j == i:
                 j = random.randint(1, USER_NO)
-            receiver_filename = "p" + str(j) + ".pem"
-            rec = SigningKey.from_pem(open("data/pk/"+receiver_filename).read())
+            receiver_filename = "pk" + str(j)
+            # rec = SigningKey.from_pem(open("data/pk/"+receiver_filename).read())
+            rec = keys.UmbralPrivateKey.from_bytes(bytes.fromhex(open("data/pk/"+receiver_filename).read()))
             amount = random.randint(1, 20)
 
-            vk = sk.get_verifying_key()
-            sender = base64.b64encode(vk.to_string())
-            receiver_key = rec.get_verifying_key()
-            receiver = base64.b64encode(receiver_key.to_string())
+            vk = sk.get_pubkey()
+            sender = vk.to_bytes().hex()
+            receiver_key = rec.get_pubkey()
+            receiver = vk.to_bytes().hex()
             txid = uuid.uuid4().hex
             timestamp = time.time()
 
             transaction = {
                 "txid": txid,
-                "sender": str(sender, encoding="utf-8"),
-                "receiver":str(receiver, encoding="utf-8"),
+                "sender": sender,
+                "receiver": receiver,
                 "timestamp": timestamp,
                 "amount": amount
             }
             print(transaction)
-            signature = sk.sign(tornado.escape.json_encode(transaction).encode('utf-8'))
+            # signature = sk.sign(tornado.escape.json_encode(transaction).encode('utf-8'))
+            sk_sign = signing.Signer(sk)
+            signature = sk_sign(str(timestamp).encode("utf8"))
+            print(bytes(signature).hex())
             data = {
                 "transaction": transaction,
-                "signature": str(base64.b64encode(signature), encoding="utf-8")
+                "signature": bytes(signature).hex()
             }
 
-            assert vk.verify(signature, tornado.escape.json_encode(transaction).encode('utf-8'))
+            assert signature.verify(str(timestamp).encode("utf8"), vk)
 
             known_addresses_list = list(ControlHandler.known_addresses)
             addr = random.choice(known_addresses_list)
