@@ -132,6 +132,25 @@ class LeaderHandler(tornado.websocket.WebSocketHandler):
         if seq[0] == "NEW_BLOCK":
             miner.new_block(seq)
 
+        elif seq[0] == "TX":
+            transaction = seq[1]
+            txid = transaction["transaction"]["txid"]
+            sender = transaction["transaction"]["sender"]
+            receiver = transaction["transaction"]["receiver"]
+            amount = transaction["transaction"]["amount"]
+            timestamp = transaction["transaction"]["timestamp"]
+            signature = transaction["signature"]
+
+            sender_blocks = lastest_block(sender)
+            receiver_blocks = lastest_block(receiver)
+
+            from_block = sender_blocks[-1] if sender_blocks else sender
+            to_block = receiver_blocks[-1] if receiver_blocks else receiver
+            if from_block in locked_blocks or to_block in locked_blocks:
+                transactions.append(seq)
+                tornado.ioloop.IOLoop.instance().call_later(1, mining)
+                return
+
         forward(seq)
 
 
@@ -191,8 +210,12 @@ class LeaderConnector(object):
         forward(seq)
 
 transactions = []
+locked_blocks = set()
+block_to_confirm = {}
 def mining():
     # global working
+    # global transactions
+    # global locked_blocks
     # print(tree.current_port, "leader transactions", transactions)
     if transactions:
         seq = transactions.pop(0)
@@ -209,11 +232,29 @@ def mining():
 
         from_block = sender_blocks[-1] if sender_blocks else sender
         to_block = receiver_blocks[-1] if receiver_blocks else receiver
+        if from_block in locked_blocks or to_block in locked_blocks:
+            transactions.append(seq)
+            tornado.ioloop.IOLoop.instance().call_later(1, mining)
+            return
 
         nonce = 0
         data = {}
-        block_hash = hashlib.sha256((tornado.escape.json_encode(data) + str(nonce)).encode('utf8')).hexdigest()
-        database.connection.execute("INSERT INTO graph"+tree.current_port+" (hash, from_block, to_block, sender, receiver, nonce, data) VALUES (%s, %s, %s, %s, %s, %s, %s)", block_hash, from_block, to_block, sender, receiver, nonce, tornado.escape.json_encode(data))
+        while True:
+            block_hash = hashlib.sha256((tornado.escape.json_encode(data) + str(nonce)).encode('utf8')).hexdigest()
+            if block_hash < certain_value:
+                locked_blocks.add(from_block)
+                locked_blocks.add(to_block)
+                transaction["nonce"] = nonce
+                transaction["from_block"] = from_block
+                transaction["to_block"] = to_block
+                block_to_confirm[txid] = transaction
+
+                message = ["TX", transaction]
+                forward(message)
+                break
+
+            nonce += 1
+        # database.connection.execute("INSERT INTO graph"+tree.current_port+" (hash, from_block, to_block, sender, receiver, nonce, data) VALUES (%s, %s, %s, %s, %s, %s, %s)", block_hash, from_block, to_block, sender, receiver, nonce, tornado.escape.json_encode(data))
 
         print(tree.current_port, txid, from_block, to_block)
 
