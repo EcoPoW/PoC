@@ -161,6 +161,13 @@ class LeaderHandler(tornado.websocket.WebSocketHandler):
 
         elif seq[0] == "ACK":
             txid = seq[1]
+            reply = block_to_reply.get(txid)
+            if self in reply:
+                reply.remove(self)
+            print(tree.current_port, "ACK reply", reply)
+            if reply:
+                return
+
             transaction = block_to_confirm.get(txid)
             sender = transaction["transaction"]["sender"]
             receiver = transaction["transaction"]["receiver"]
@@ -176,16 +183,18 @@ class LeaderHandler(tornado.websocket.WebSocketHandler):
         elif seq[0] == "NAK":
             txid = seq[1]
             transaction = block_to_confirm.get(txid)
-            from_block = transaction["from_block"]
-            to_block = transaction["to_block"]
-
-            if from_block in locked_blocks:
-                locked_blocks.remove(from_block)
-            if to_block in locked_blocks:
-                locked_blocks.remove(to_block)
             if transaction:
-                del block_to_confirm[txid]
+                from_block = transaction["from_block"]
+                to_block = transaction["to_block"]
+
+                if from_block in locked_blocks:
+                    locked_blocks.remove(from_block)
+                if to_block in locked_blocks:
+                    locked_blocks.remove(to_block)
+                if transaction:
+                    del block_to_confirm[txid]
             return
+
 
         forward(seq)
 
@@ -268,6 +277,13 @@ class LeaderConnector(object):
 
         elif seq[0] == "ACK":
             txid = seq[1]
+            reply = block_to_reply.get(txid)
+            if self in reply:
+                reply.remove(self)
+            print(tree.current_port, "ACK reply", reply)
+            if reply:
+                return
+
             transaction = block_to_confirm.get(txid)
             sender = transaction["transaction"]["sender"]
             receiver = transaction["transaction"]["receiver"]
@@ -283,15 +299,16 @@ class LeaderConnector(object):
         elif seq[0] == "NAK":
             txid = seq[1]
             transaction = block_to_confirm.get(txid)
-            from_block = transaction["from_block"]
-            to_block = transaction["to_block"]
-
-            if from_block in locked_blocks:
-                locked_blocks.remove(from_block)
-            if to_block in locked_blocks:
-                locked_blocks.remove(to_block)
             if transaction:
-                del block_to_confirm[txid]
+                from_block = transaction["from_block"]
+                to_block = transaction["to_block"]
+
+                if from_block in locked_blocks:
+                    locked_blocks.remove(from_block)
+                if to_block in locked_blocks:
+                    locked_blocks.remove(to_block)
+                if transaction:
+                    del block_to_confirm[txid]
             return
 
         # else:
@@ -300,6 +317,7 @@ class LeaderConnector(object):
 transactions = []
 locked_blocks = set()
 block_to_confirm = {}
+block_to_reply = {}
 def mining():
     # global working
     # global transactions
@@ -337,6 +355,14 @@ def mining():
                 transaction["from_block"] = from_block
                 transaction["to_block"] = to_block
                 block_to_confirm[txid] = transaction
+
+                reply = block_to_reply.setdefault(txid, set())
+                for leader_node in LeaderHandler.leader_nodes:
+                    reply.add(leader_node)
+
+                for leader_connector in LeaderConnector.leader_nodes:
+                    reply.add(leader_connector)
+                print(tree.current_port, "reply", reply)
 
                 message = ["TX", transaction]
                 forward(message)
