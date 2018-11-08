@@ -2,6 +2,7 @@ from __future__ import print_function
 
 import time
 import uuid
+import hashlib
 
 import tornado.web
 import tornado.websocket
@@ -203,8 +204,17 @@ def mining():
         timestamp = transaction["transaction"]["timestamp"]
         signature = transaction["signature"]
 
-        from_block = lastest_block(sender)
-        to_block = lastest_block(receiver)
+        sender_blocks = lastest_block(sender)
+        receiver_blocks = lastest_block(receiver)
+
+        from_block = sender_blocks[-1] if sender_blocks else sender
+        to_block = receiver_blocks[-1] if receiver_blocks else receiver
+
+        nonce = 0
+        data = {}
+        block_hash = hashlib.sha256((tornado.escape.json_encode(data) + str(nonce)).encode('utf8')).hexdigest()
+        database.connection.execute("INSERT INTO graph"+tree.current_port+" (hash, from_block, to_block, sender, receiver, nonce, data) VALUES (%s, %s, %s, %s, %s, %s, %s)", block_hash, from_block, to_block, sender, receiver, nonce, tornado.escape.json_encode(data))
+
         print(tree.current_port, txid, from_block, to_block)
 
     if working:
