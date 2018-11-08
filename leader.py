@@ -16,6 +16,9 @@ import tree
 import node
 import database
 
+certain_value = "0"
+certain_value = certain_value + 'f'*(64-len(certain_value))
+
 working = False
 
 root_jump = {}
@@ -140,16 +143,49 @@ class LeaderHandler(tornado.websocket.WebSocketHandler):
             amount = transaction["transaction"]["amount"]
             timestamp = transaction["transaction"]["timestamp"]
             signature = transaction["signature"]
+            nonce = transaction["nonce"]
+            from_block = transaction["from_block"]
+            to_block = transaction["to_block"]
 
-            sender_blocks = lastest_block(sender)
-            receiver_blocks = lastest_block(receiver)
+            # sender_blocks = lastest_block(sender)
+            # receiver_blocks = lastest_block(receiver)
 
-            from_block = sender_blocks[-1] if sender_blocks else sender
-            to_block = receiver_blocks[-1] if receiver_blocks else receiver
             if from_block in locked_blocks or to_block in locked_blocks:
-                transactions.append(seq)
-                tornado.ioloop.IOLoop.instance().call_later(1, mining)
-                return
+                message = ["NAK", txid]
+                self.write_message(tornado.escape.json_encode(message))
+            else:
+                message = ["ACK", txid]
+                self.write_message(tornado.escape.json_encode(message))
+            print(tree.current_port, "TX", message)
+            return
+
+        elif seq[0] == "ACK":
+            txid = seq[1]
+            transaction = block_to_confirm.get(txid)
+            sender = transaction["transaction"]["sender"]
+            receiver = transaction["transaction"]["receiver"]
+
+            block_hash = transaction["block_hash"]
+            nonce = transaction["nonce"]
+            from_block = transaction["from_block"]
+            to_block = transaction["to_block"]
+            data = {}
+            database.connection.execute("INSERT INTO graph"+tree.current_port+" (hash, from_block, to_block, sender, receiver, nonce, data) VALUES (%s, %s, %s, %s, %s, %s, %s)", block_hash, from_block, to_block, sender, receiver, nonce, tornado.escape.json_encode(data))
+            return
+
+        elif seq[0] == "NAK":
+            txid = seq[1]
+            transaction = block_to_confirm.get(txid)
+            from_block = transaction["from_block"]
+            to_block = transaction["to_block"]
+
+            if from_block in locked_blocks:
+                locked_blocks.remove(from_block)
+            if to_block in locked_blocks:
+                locked_blocks.remove(to_block)
+            if transaction:
+                del block_to_confirm[txid]
+            return
 
         forward(seq)
 
@@ -206,6 +242,58 @@ class LeaderConnector(object):
         if seq[0] == "NEW_BLOCK":
             miner.new_block(seq)
 
+        elif seq[0] == "TX":
+            transaction = seq[1]
+            txid = transaction["transaction"]["txid"]
+            sender = transaction["transaction"]["sender"]
+            receiver = transaction["transaction"]["receiver"]
+            amount = transaction["transaction"]["amount"]
+            timestamp = transaction["transaction"]["timestamp"]
+            signature = transaction["signature"]
+            nonce = transaction["nonce"]
+            from_block = transaction["from_block"]
+            to_block = transaction["to_block"]
+
+            # sender_blocks = lastest_block(sender)
+            # receiver_blocks = lastest_block(receiver)
+
+            if from_block in locked_blocks or to_block in locked_blocks:
+                message = ["NAK", txid]
+                self.conn.write_message(tornado.escape.json_encode(message))
+            else:
+                message = ["ACK", txid]
+                self.conn.write_message(tornado.escape.json_encode(message))
+            print(tree.current_port, "TX", message)
+            return
+
+        elif seq[0] == "ACK":
+            txid = seq[1]
+            transaction = block_to_confirm.get(txid)
+            sender = transaction["transaction"]["sender"]
+            receiver = transaction["transaction"]["receiver"]
+
+            block_hash = transaction["block_hash"]
+            nonce = transaction["nonce"]
+            from_block = transaction["from_block"]
+            to_block = transaction["to_block"]
+            data = {}
+            database.connection.execute("INSERT INTO graph"+tree.current_port+" (hash, from_block, to_block, sender, receiver, nonce, data) VALUES (%s, %s, %s, %s, %s, %s, %s)", block_hash, from_block, to_block, sender, receiver, nonce, tornado.escape.json_encode(data))
+            return
+
+        elif seq[0] == "NAK":
+            txid = seq[1]
+            transaction = block_to_confirm.get(txid)
+            from_block = transaction["from_block"]
+            to_block = transaction["to_block"]
+
+            if from_block in locked_blocks:
+                locked_blocks.remove(from_block)
+            if to_block in locked_blocks:
+                locked_blocks.remove(to_block)
+            if transaction:
+                del block_to_confirm[txid]
+            return
+
         # else:
         forward(seq)
 
@@ -244,6 +332,7 @@ def mining():
             if block_hash < certain_value:
                 locked_blocks.add(from_block)
                 locked_blocks.add(to_block)
+                transaction["block_hash"] = block_hash
                 transaction["nonce"] = nonce
                 transaction["from_block"] = from_block
                 transaction["to_block"] = to_block
@@ -254,7 +343,6 @@ def mining():
                 break
 
             nonce += 1
-        # database.connection.execute("INSERT INTO graph"+tree.current_port+" (hash, from_block, to_block, sender, receiver, nonce, data) VALUES (%s, %s, %s, %s, %s, %s, %s)", block_hash, from_block, to_block, sender, receiver, nonce, tornado.escape.json_encode(data))
 
         print(tree.current_port, txid, from_block, to_block)
 
