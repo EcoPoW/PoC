@@ -1,5 +1,6 @@
 from __future__ import print_function
 
+import sys
 import os
 import time
 import socket
@@ -24,6 +25,45 @@ import tree
 import miner
 import leader
 import database
+
+def mt(filename, algorithm = hashlib.md5):
+    f = open(filename, "rb")
+    s = os.path.getsize(filename)
+    m = s/(1024*1024)
+    obj = f.read(1024*1024)
+
+    hash_list = []
+    result = []
+    start = 0
+    offset = 1024*1024
+    end = offset
+    while obj:
+        obj_hash = algorithm(obj).hexdigest()
+        # print(obj_hash, len(obj))
+        hash_list.append((start, end, obj_hash))
+
+        obj = f.read(1024*1024)
+        start = offset
+        offset += len(obj)
+        end = offset
+    result.append(hash_list)
+
+    hash_list = mt_combine(hash_list, algorithm)
+    result.append(hash_list)
+    while len(hash_list) > 1:
+        hash_list = mt_combine(hash_list, algorithm)
+        result.append(hash_list)
+    return result
+
+def mt_combine(hash_list, algorithm):
+    l = len(hash_list)
+    m = l % 2
+    result = []
+    for i in range(0, l - m, 2):
+        result.append((hash_list[i][0], hash_list[i+1][1], algorithm((hash_list[i][2] + hash_list[i+1][2]).encode("utf8")).hexdigest()))
+    result.extend(hash_list[l-m:])
+    return result
+
 
 transactions = []
 nonce = 0
@@ -189,3 +229,5 @@ def main():
 if __name__ == '__main__':
     # main()
     print("run python node.py pls")
+    for i in mt(sys.argv[1]):
+        print(i)
