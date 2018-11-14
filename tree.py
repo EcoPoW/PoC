@@ -161,6 +161,9 @@ class NodeHandler(tornado.websocket.WebSocketHandler):
         elif seq[0] == "NEW_BLOCK":
             miner.new_block(seq)
 
+        elif seq[0] == "NEW_TX_BLOCK":
+            miner.new_tx_block(seq)
+
         elif seq[0] == "NEW_TX":
             txid = seq[1]["transaction"]["txid"]
             if (current_host, current_port) in leader.current_leaders and txid not in processed_message_ids:
@@ -306,6 +309,9 @@ class NodeConnector(object):
         elif seq[0] == "NEW_BLOCK":
             miner.new_block(seq)
 
+        elif seq[0] == "NEW_TX_BLOCK":
+            miner.new_tx_block(seq)
+
         elif seq[0] == "NEW_TX":
             txid = seq[1]["transaction"]["txid"]
             if (current_host, current_port) in leader.current_leaders and txid not in processed_message_ids:
@@ -370,6 +376,9 @@ class BuddyHandler(tornado.websocket.WebSocketHandler):
 
         elif seq[0] == "NEW_BLOCK":
             miner.new_block(seq)
+
+        elif seq[0] == "NEW_TX_BLOCK":
+            miner.new_tx_block(seq)
 
         forward(seq)
 
@@ -462,6 +471,9 @@ class BuddyConnector(object):
 
         elif seq[0] == "NEW_BLOCK":
             miner.new_block(seq)
+
+        elif seq[0] == "NEW_TX_BLOCK":
+            miner.new_tx_block(seq)
 
         # else:
         forward(seq)

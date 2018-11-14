@@ -21,7 +21,7 @@ create_chain = """CREATE TABLE `chain%s` (
 
 create_graph = """CREATE TABLE `graph%s` (
     `id` int(11) unsigned NOT NULL AUTO_INCREMENT,
-    `transaction_id` int(11) unsigned DEFAULT NULL,
+    `txid` varchar(128) NOT NULL,
     `timestamp` int(11) unsigned DEFAULT NULL,
     `hash` varchar(128) NOT NULL DEFAULT '',
     `from_block` varchar(128) NOT NULL DEFAULT '',
@@ -65,6 +65,8 @@ create_graph = """CREATE TABLE `graph%s` (
 
 
 def main():
+    if not tree.current_port:
+        return
     # if not connection.get("SELECT table_name FROM information_schema.tables WHERE table_schema = 'nodes' AND table_name = %s", tree.current_port+"chain"):
     connection.execute("DROP TABLE IF EXISTS %schain" % tree.current_port)
     connection.execute("DROP TABLE IF EXISTS chain%s" % tree.current_port)

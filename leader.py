@@ -336,15 +336,15 @@ def mining():
 
         from_block = sender_blocks[-1] if sender_blocks else sender
         to_block = receiver_blocks[-1] if receiver_blocks else receiver
-        if from_block in locked_blocks or to_block in locked_blocks:
-            transactions.append(seq)
-            tornado.ioloop.IOLoop.instance().call_later(1, mining)
-            return
+        # if from_block in locked_blocks or to_block in locked_blocks:
+        #     transactions.append(seq)
+        #     tornado.ioloop.IOLoop.instance().call_later(1, mining)
+        #     return
 
         nonce = 0
-        data = {}
+        data = txid + sender + receiver + str(amount) + str(timestamp) + signature + from_block + to_block + str(tree.current_port)
         while True:
-            block_hash = hashlib.sha256((tornado.escape.json_encode(data) + str(nonce)).encode('utf8')).hexdigest()
+            block_hash = hashlib.sha256((data + str(nonce)).encode('utf8')).hexdigest()
             if block_hash < certain_value:
                 locked_blocks.add(from_block)
                 locked_blocks.add(to_block)
@@ -360,9 +360,10 @@ def mining():
 
                 for leader_connector in LeaderConnector.leader_nodes:
                     reply.add(leader_connector)
-                print(tree.current_port, "reply", reply)
+                # print(tree.current_port, "reply", reply)
 
                 message = ["NEW_TX_BLOCK", transaction, time.time(), uuid.uuid4().hex]
+                print(tree.current_port, message)
                 tree.forward(message)
 
                 message = ["TX", transaction]
