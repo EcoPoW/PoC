@@ -176,8 +176,6 @@ class LeaderHandler(tornado.websocket.WebSocketHandler):
             nonce = transaction["nonce"]
             from_block = transaction["from_block"]
             to_block = transaction["to_block"]
-            data = {}
-            database.connection.execute("INSERT INTO graph"+tree.current_port+" (hash, from_block, to_block, sender, receiver, nonce, data) VALUES (%s, %s, %s, %s, %s, %s, %s)", block_hash, from_block, to_block, sender, receiver, nonce, tornado.escape.json_encode(data))
             return
 
         elif seq[0] == "NAK":
@@ -364,8 +362,11 @@ def mining():
                     reply.add(leader_connector)
                 print(tree.current_port, "reply", reply)
 
+                message = ["NEW_TX_BLOCK", transaction, time.time(), uuid.uuid4().hex]
+                tree.forward(message)
+
                 message = ["TX", transaction]
-                forward(message)
+                # forward(message)
                 break
 
             nonce += 1

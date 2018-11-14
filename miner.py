@@ -100,6 +100,7 @@ def mining():
 
 def new_block(seq):
     msg_header, block_hash, longest_hash, nonce, difficulty, identity, timestamp, data, msg_id = seq
+
     try:
         database.connection.execute("INSERT INTO chain"+tree.current_port+" (hash, prev_hash, nonce, difficulty, identity, timestamp, data) VALUES (%s, %s, %s, %s, %s, %s, %s)", block_hash, longest_hash, nonce, difficulty, identity, timestamp, tornado.escape.json_encode(data))
     except:
@@ -109,6 +110,24 @@ def new_block(seq):
     if longest:
         leaders = set([("localhost", i.identity) for i in longest[-6:-3]])
         leader.update(leaders)
+
+def new_tx_block(seq):
+    msg_header, transaction, timestamp, msg_id = seq
+    sender = transaction["transaction"]["sender"]
+    receiver = transaction["transaction"]["receiver"]
+
+    block_hash = transaction["block_hash"]
+    nonce = transaction["nonce"]
+    from_block = transaction["from_block"]
+    to_block = transaction["to_block"]
+    data = {}
+
+    try:
+        # database.connection.execute("INSERT INTO chain"+tree.current_port+" (hash, prev_hash, nonce, difficulty, identity, timestamp, data) VALUES (%s, %s, %s, %s, %s, %s, %s)", block_hash, longest_hash, nonce, difficulty, identity, timestamp, tornado.escape.json_encode(data))
+        data = {}
+        database.connection.execute("INSERT INTO graph"+tree.current_port+" (hash, from_block, to_block, sender, receiver, nonce, data) VALUES (%s, %s, %s, %s, %s, %s, %s)", block_hash, from_block, to_block, sender, receiver, nonce, tornado.escape.json_encode(data))
+    except:
+        pass
 
 def main():
     print(tree.current_port, "miner")

@@ -12,7 +12,7 @@ or manually
 
     python3 node.py --port=8001 --control_port=8000
 
-python 3.4+ (or 2.7.9+)
+python 3.5+
 
 Ubuntu 14.04 LTS
 
