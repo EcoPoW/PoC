@@ -86,7 +86,7 @@ def mining():
         block_hash = hashlib.sha256((identity + data + longest_hash + str(difficulty) + str(nonce)).encode('utf8')).hexdigest()
         if int(block_hash, 16) < int("1" * (256-difficulty), 2):
             if longest:
-                print(len(longest), longest[-1].timestamp, longest[0].timestamp, longest[-1].timestamp - longest[0].timestamp)
+                print(tree.current_port, len(longest), longest[-1].timestamp, longest[0].timestamp, longest[-1].timestamp - longest[0].timestamp)
             # db.execute("UPDATE chain SET hash = %s, prev_hash = %s, nonce = %s, wallet_address = %s WHERE id = %s", block_hash, longest_hash, nonce, wallet_address, last.id)
             # database.connection.execute("INSERT INTO chain"+tree.current_port+" (hash, prev_hash, nonce, difficulty, identity, timestamp, data) VALUES (%s, %s, %s, %s, '')", block_hash, longest_hash, nonce, difficulty, str(tree.current_port))
 
@@ -126,11 +126,11 @@ def new_tx_block(seq):
     from_block = transaction["from_block"]
     to_block = transaction["to_block"]
 
-    # try:
-    sql = "INSERT INTO graph"+tree.current_port+" (txid, timestamp, hash, from_block, to_block, sender, receiver, nonce, data) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)"
-    database.connection.execute(sql, txid, int(timestamp), block_hash, from_block, to_block, sender, receiver, nonce, tornado.escape.json_encode(transaction))
-    # except:
-    #     pass
+    try:
+        sql = "INSERT INTO graph"+tree.current_port+" (txid, timestamp, hash, from_block, to_block, sender, receiver, nonce, data) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)"
+        database.connection.execute(sql, txid, int(timestamp), block_hash, from_block, to_block, sender, receiver, nonce, tornado.escape.json_encode(transaction))
+    except:
+        pass
 
 def main():
     print(tree.current_port, "miner")

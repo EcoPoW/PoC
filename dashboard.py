@@ -64,15 +64,21 @@ class Application(tornado.web.Application):
         tornado.web.Application.__init__(self, handlers, **settings)
 
 class NewNodeHandler(tornado.web.RequestHandler):
+    @tornado.web.asynchronous
     def get(self):
+        self.count = int(self.get_argument("n", "1"))
+        tornado.ioloop.IOLoop.instance().call_later(1, self.add)
+
+    def add(self):
         global incremental_port
-        count = int(self.get_argument("n", "1"))
-        for i in range(count):
-            incremental_port += 1
-            subprocess.Popen(["python3", "node.py", "--port=%s"%incremental_port, "--control_port=8000"])
-            self.write("new node %s\n" % incremental_port)
-            time.sleep(0.5)
-        self.finish()
+        if self.count <= 0:
+            self.finish()
+            return
+        self.count -= 1
+        incremental_port += 1
+        subprocess.Popen(["python3", "node.py", "--port=%s"%incremental_port, "--control_port=8000"], shell=False)
+        self.write("new node %s\n" % incremental_port)
+        tornado.ioloop.IOLoop.instance().call_later(2, self.add)
 
 class NewTxHandler(tornado.web.RequestHandler):
     @tornado.gen.coroutine
