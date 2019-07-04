@@ -285,7 +285,7 @@ class NodeConnector(object):
             node_parents[current_groupid] = [list(i) for i in available_buddies]
             # print(current_port, "NODE_PARENTS", node_parents[current_groupid])
 
-            if self.conn is not None:
+            if self.conn and not self.conn.stream.closed:
                 message = ["NODE_NEIGHBOURHOODS", current_groupid, list(available_buddies), uuid.uuid4().hex]
                 self.conn.write_message(tornado.escape.json_encode(message))
             return

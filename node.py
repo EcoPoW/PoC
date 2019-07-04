@@ -149,8 +149,8 @@ class DashboardHandler(tornado.web.RequestHandler):
 def main():
     tree.main()
     database.main()
-    fs.main()
-    # tornado.ioloop.IOLoop.instance().call_later(10, miner.main)
+    # fs.main()
+    tornado.ioloop.IOLoop.instance().call_later(20, miner.main)
 
     server = Application()
     server.listen(tree.current_port)

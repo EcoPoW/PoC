@@ -68,17 +68,17 @@ def main():
     if not tree.current_port:
         return
     # if not connection.get("SELECT table_name FROM information_schema.tables WHERE table_schema = 'nodes' AND table_name = %s", tree.current_port+"chain"):
-    connection.execute("DROP TABLE IF EXISTS %schain" % tree.current_port)
+    # connection.execute("DROP TABLE IF EXISTS %schain" % tree.current_port)
     connection.execute("DROP TABLE IF EXISTS chain%s" % tree.current_port)
     connection.execute(create_chain % tree.current_port)
     # connection.execute("TRUNCATE %schain" % tree.current_port)
 
-    connection.execute("DROP TABLE IF EXISTS %sgraph" % tree.current_port)
+    # connection.execute("DROP TABLE IF EXISTS %sgraph" % tree.current_port)
     connection.execute("DROP TABLE IF EXISTS graph%s" % tree.current_port)
     connection.execute(create_graph % tree.current_port)
 
-    connection.execute("DROP TABLE IF EXISTS %susers" % tree.current_port)
+    # connection.execute("DROP TABLE IF EXISTS %susers" % tree.current_port)
     # connection.execute(create_users % tree.current_port)
 
-    connection.execute("DROP TABLE IF EXISTS %sroots" % tree.current_port)
+    # connection.execute("DROP TABLE IF EXISTS %sroots" % tree.current_port)
     # connection.execute(create_roots % tree.current_port)

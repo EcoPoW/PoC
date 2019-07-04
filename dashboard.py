@@ -83,10 +83,10 @@ class NewNodeHandler(tornado.web.RequestHandler):
 class NewTxHandler(tornado.web.RequestHandler):
     @tornado.gen.coroutine
     def get(self):
-        count = int(self.get_argument("n", "1"))
         USER_NO = 4
-        user_nos = list(range(USER_NO))
+        count = int(self.get_argument("n", "1"))
         for i in range(count):
+            user_nos = list(range(USER_NO))
             i = random.choice(user_nos)
             sender_filename = "pk" + str(i)
             sender_sk = keys.UmbralPrivateKey.from_bytes(bytes.fromhex(open("data/pk/"+sender_filename).read()))
@@ -122,6 +122,8 @@ class NewTxHandler(tornado.web.RequestHandler):
 
             known_addresses_list = list(ControlHandler.known_addresses)
             addr = random.choice(known_addresses_list)
+
+            self.write("%s %s\n" % addr)
             http_client = tornado.httpclient.AsyncHTTPClient()
             try:
                 response = yield http_client.fetch("http://%s:%s/new_tx" % tuple(addr), method="POST", body=tornado.escape.json_encode(data))
