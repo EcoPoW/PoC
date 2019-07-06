@@ -4,6 +4,10 @@ start dashboard
 
     python3 dashboard.py
 
+visualize:
+
+    http://127.0.0.1:8000/static/index.html
+
 start node
 
     curl http://127.0.0.1:8000/new_node (or in browser)
