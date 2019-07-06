@@ -38,3 +38,7 @@ Then
 Database Requirement: MySQL 5.0+.
 
     CREATE DATABASE nodes;
+
+## Related Paper
+
+    https://arxiv.org/abs/1902.09100
