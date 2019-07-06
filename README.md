@@ -1,22 +1,22 @@
-# nodes
+# MTFS PoC
 
-start dashboard
+Start dashboard in cmd line:
 
     python3 dashboard.py
 
-visualize:
+Visualize in browser:
 
     http://127.0.0.1:8000/static/index.html
 
-start node
+Start node:
 
     curl http://127.0.0.1:8000/new_node (or in browser)
 
-or manually
+or manually in cmd line:
 
     python3 node.py --port=8001 --control_port=8000
 
-python 3.5+
+Python 3.5+ required.
 
 Ubuntu 14.04 LTS
 
@@ -34,3 +34,7 @@ Then
 
     pip3 install -U setuptools pip
     pip3 install -r requirements.txt
+
+Database Requirement: MySQL 5.0+.
+
+    CREATE DATABASE nodes;
