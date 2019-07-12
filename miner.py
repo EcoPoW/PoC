@@ -48,7 +48,7 @@ def longest_chain(root_hash = '0'*64):
                 if leaf.hash not in prev_hashs and leaf.hash:
                     prev_hashs.append(leaf.hash)
 
-    longest = None
+    longest = []
     for i in chains:
         # print(i)
         if not longest:
@@ -90,7 +90,7 @@ def mining():
             # db.execute("UPDATE chain SET hash = %s, prev_hash = %s, nonce = %s, wallet_address = %s WHERE id = %s", block_hash, longest_hash, nonce, wallet_address, last.id)
             # database.connection.execute("INSERT INTO chain"+tree.current_port+" (hash, prev_hash, nonce, difficulty, identity, timestamp, data) VALUES (%s, %s, %s, %s, '')", block_hash, longest_hash, nonce, difficulty, str(tree.current_port))
 
-            message = ["NEW_BLOCK", block_hash, longest_hash, nonce, new_difficulty, str(tree.current_port), int(time.time()), {}, uuid.uuid4().hex]
+            message = ["NEW_BLOCK", block_hash, longest_hash, len(longest)+1, nonce, new_difficulty, str(tree.current_port), int(time.time()), {}, uuid.uuid4().hex]
             tree.forward(message)
             # print(tree.current_port, "mining", nonce, block_hash)
             nonce = 0
@@ -99,10 +99,10 @@ def mining():
         nonce += 1
 
 def new_block(seq):
-    msg_header, block_hash, longest_hash, nonce, difficulty, identity, timestamp, data, msg_id = seq
+    msg_header, block_hash, longest_hash, height, nonce, difficulty, identity, timestamp, data, msg_id = seq
 
     try:
-        database.connection.execute("INSERT INTO chain"+tree.current_port+" (hash, prev_hash, nonce, difficulty, identity, timestamp, data) VALUES (%s, %s, %s, %s, %s, %s, %s)", block_hash, longest_hash, nonce, difficulty, identity, timestamp, tornado.escape.json_encode(data))
+        database.connection.execute("INSERT INTO chain"+tree.current_port+" (hash, prev_hash, height, nonce, difficulty, identity, timestamp, data) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)", block_hash, longest_hash, height, nonce, difficulty, identity, timestamp, tornado.escape.json_encode(data))
     except:
         pass
 

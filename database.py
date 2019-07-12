@@ -8,6 +8,7 @@ create_chain = """CREATE TABLE `chain%s` (
     `id` int(11) unsigned NOT NULL AUTO_INCREMENT,
     `hash` varchar(64) NOT NULL DEFAULT '',
     `prev_hash` varchar(64) NOT NULL DEFAULT '',
+    `height` int(11) unsigned NOT NULL,
     `nonce` int(11) unsigned NOT NULL,
     `difficulty` smallint(5) unsigned NOT NULL,
     `identity` varchar(66) NOT NULL DEFAULT '',
