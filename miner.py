@@ -92,7 +92,6 @@ def mining():
 
             message = ["NEW_BLOCK", block_hash, longest_hash, len(longest)+1, nonce, new_difficulty, str(tree.current_port), int(time.time()), {}, uuid.uuid4().hex]
             tree.forward(message)
-            leader.current_view = len(longest)+1
             # print(tree.current_port, "mining", nonce, block_hash)
             nonce = 0
             break
@@ -111,6 +110,9 @@ def new_block(seq):
     if longest:
         leaders = set([("localhost", i.identity) for i in longest[-6:-3]])
         leader.update(leaders)
+    if height - 5 > 0:
+        leader.current_view = height - 5
+        print(tree.current_port, "leader view", leader.current_view)
 
 def new_tx_block(seq):
     msg_header, transaction, timestamp, msg_id = seq

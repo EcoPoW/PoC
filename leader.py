@@ -339,7 +339,6 @@ def mining():
         amount = transaction["transaction"]["amount"]
         timestamp = transaction["transaction"]["timestamp"]
         signature = transaction["signature"]
-        print(tree.current_port, "leader view", current_view)
 
         sender_blocks = lastest_block(sender)
         receiver_blocks = lastest_block(receiver)
