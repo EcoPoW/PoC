@@ -334,52 +334,54 @@ def mining():
         seq = transactions.pop(0)
         transaction = seq[1]
         txid = transaction["transaction"]["txid"]
-        sender = transaction["transaction"]["sender"]
-        receiver = transaction["transaction"]["receiver"]
-        amount = transaction["transaction"]["amount"]
+        # sender = transaction["transaction"]["sender"]
+        # receiver = transaction["transaction"]["receiver"]
+        # amount = transaction["transaction"]["amount"]
         timestamp = transaction["transaction"]["timestamp"]
         signature = transaction["signature"]
 
-        sender_blocks = lastest_block(sender)
-        receiver_blocks = lastest_block(receiver)
+        # sender_blocks = lastest_block(sender)
+        # receiver_blocks = lastest_block(receiver)
 
-        from_block = sender_blocks[-1] if sender_blocks else sender
-        to_block = receiver_blocks[-1] if receiver_blocks else receiver
+        # from_block = sender_blocks[-1] if sender_blocks else sender
+        # to_block = receiver_blocks[-1] if receiver_blocks else receiver
         # if from_block in locked_blocks or to_block in locked_blocks:
         #     transactions.append(seq)
         #     tornado.ioloop.IOLoop.instance().call_later(1, mining)
         #     return
 
-        nonce = 0
-        data = txid + sender + receiver + str(amount) + str(timestamp) + signature + from_block + to_block + str(tree.current_port)
-        while True:
-            block_hash = hashlib.sha256((data + str(nonce)).encode('utf8')).hexdigest()
-            if block_hash < certain_value:
-                locked_blocks.add(from_block)
-                locked_blocks.add(to_block)
-                transaction["block_hash"] = block_hash
-                transaction["nonce"] = nonce
-                transaction["from_block"] = from_block
-                transaction["to_block"] = to_block
-                block_to_confirm[txid] = transaction
+        # nonce = 0
+        # data = txid + sender + receiver + str(amount) + str(timestamp) + signature + from_block + to_block + str(tree.current_port)
+        data = txid + str(timestamp) + signature + str(tree.current_port)
+        # while True:
+        # block_hash = hashlib.sha256((data + str(nonce)).encode('utf8')).hexdigest()
+        block_hash = hashlib.sha256(data.encode('utf8')).hexdigest()
+            # if block_hash < certain_value:
+                # locked_blocks.add(from_block)
+                # locked_blocks.add(to_block)
+        transaction["block_hash"] = block_hash
+        # transaction["nonce"] = nonce
+                # transaction["from_block"] = from_block
+                # transaction["to_block"] = to_block
+                # block_to_confirm[txid] = transaction
 
-                reply = block_to_reply.setdefault(txid, set())
-                for leader_node in LeaderHandler.leader_nodes:
-                    reply.add(leader_node)
+                # reply = block_to_reply.setdefault(txid, set())
+                # for leader_node in LeaderHandler.leader_nodes:
+                #     reply.add(leader_node)
 
-                for leader_connector in LeaderConnector.leader_nodes:
-                    reply.add(leader_connector)
+                # for leader_connector in LeaderConnector.leader_nodes:
+                #     reply.add(leader_connector)
                 # print(tree.current_port, "reply", reply)
 
-                message = ["NEW_TX_BLOCK", transaction, time.time(), uuid.uuid4().hex]
-                print(tree.current_port, message)
-                tree.forward(message)
+        message = ["NEW_TX_BLOCK", transaction, time.time(), uuid.uuid4().hex]
+        print(tree.current_port, message)
+        tree.forward(message)
 
-                message = ["TX", transaction]
+                # message = ["TX", transaction]
                 # forward(message)
-                break
+                # break
 
-            nonce += 1
+            # nonce += 1
 
         print(tree.current_port, txid, from_block, to_block)
 
