@@ -404,9 +404,9 @@ def update(leaders):
                 # print(tree.current_port, other_leader_addr, connected)
                 LeaderConnector(*other_leader_addr)
 
-                if not working:
-                    tornado.ioloop.IOLoop.instance().add_callback(mining)
-                working = True
+        if not working:
+            tornado.ioloop.IOLoop.instance().add_callback(mining)
+            working = True
 
     nodes_to_close = set()
     for node in LeaderConnector.leader_nodes:
