@@ -39,6 +39,17 @@ create_graph = """CREATE TABLE `graph%s` (
 ) ENGINE=InnoDB AUTO_INCREMENT=1000 DEFAULT CHARSET=utf8;
 """
 
+create_data = """CREATE TABLE `data%s` (
+    `id` int(11) unsigned NOT NULL AUTO_INCREMENT,
+    `txid` varchar(128) NOT NULL,
+    `timestamp` int(11) unsigned DEFAULT NULL,
+    `hash` varchar(128) NOT NULL DEFAULT '',
+    `data` text NOT NULL,
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `hash` (`hash`)
+) ENGINE=InnoDB AUTO_INCREMENT=1000 DEFAULT CHARSET=utf8;
+"""
+
 # create_users = """CREATE TABLE `%susers` (
 #     `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
 #     `user_id` char(70) NOT NULL DEFAULT '',
@@ -75,8 +86,11 @@ def main():
     # connection.execute("TRUNCATE %schain" % tree.current_port)
 
     # connection.execute("DROP TABLE IF EXISTS %sgraph" % tree.current_port)
-    connection.execute("DROP TABLE IF EXISTS graph%s" % tree.current_port)
-    connection.execute(create_graph % tree.current_port)
+    # connection.execute("DROP TABLE IF EXISTS graph%s" % tree.current_port)
+    # connection.execute(create_graph % tree.current_port)
+
+    connection.execute("DROP TABLE IF EXISTS data%s" % tree.current_port)
+    connection.execute(create_data % tree.current_port)
 
     # connection.execute("DROP TABLE IF EXISTS %susers" % tree.current_port)
     # connection.execute(create_users % tree.current_port)

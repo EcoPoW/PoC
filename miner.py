@@ -108,30 +108,32 @@ def new_block(seq):
 
     longest = longest_chain()
     if longest:
-        leaders = set([("localhost", i.identity) for i in longest[-6:-3]])
+        leaders = set([("localhost", i.identity) for i in longest[-4:-3]])
         leader.update(leaders)
-    if height - 5 > 0:
-        leader.current_view = height - 5
+    if height - 3 > 0:
+        leader.current_view = height - 3
         print(tree.current_port, "leader view", leader.current_view)
 
 def new_tx_block(seq):
     msg_header, transaction, timestamp, msg_id = seq
 
     txid = transaction["transaction"]["txid"]
-    sender = transaction["transaction"]["sender"]
-    receiver = transaction["transaction"]["receiver"]
-    amount = transaction["transaction"]["amount"]
+    # sender = transaction["transaction"]["sender"]
+    # receiver = transaction["transaction"]["receiver"]
+    # amount = transaction["transaction"]["amount"]
     timestamp = transaction["transaction"]["timestamp"]
 
-    signature = transaction["signature"]
+    # signature = transaction["signature"]
     block_hash = transaction["block_hash"]
-    nonce = transaction["nonce"]
-    from_block = transaction["from_block"]
-    to_block = transaction["to_block"]
+    # nonce = transaction["nonce"]
+    # from_block = transaction["from_block"]
+    # to_block = transaction["to_block"]
 
     try:
-        sql = "INSERT INTO graph"+tree.current_port+" (txid, timestamp, hash, from_block, to_block, sender, receiver, nonce, data) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)"
-        database.connection.execute(sql, txid, int(timestamp), block_hash, from_block, to_block, sender, receiver, nonce, tornado.escape.json_encode(transaction))
+        # sql = "INSERT INTO graph"+tree.current_port+" (txid, timestamp, hash, from_block, to_block, sender, receiver, nonce, data) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)"
+        # database.connection.execute(sql, txid, int(timestamp), block_hash, from_block, to_block, sender, receiver, nonce, tornado.escape.json_encode(transaction))
+        sql = "INSERT INTO data"+tree.current_port+" (txid, timestamp, hash, data) VALUES (%s, %s, %s, %s)"
+        database.connection.execute(sql, txid, int(timestamp), block_hash, tornado.escape.json_encode(transaction))
     except:
         pass
 
