@@ -92,6 +92,7 @@ def mining():
 
             message = ["NEW_BLOCK", block_hash, longest_hash, len(longest)+1, nonce, new_difficulty, str(tree.current_port), int(time.time()), {}, uuid.uuid4().hex]
             tree.forward(message)
+            leader.current_view = len(longest)+1
             # print(tree.current_port, "mining", nonce, block_hash)
             nonce = 0
             break

@@ -20,6 +20,7 @@ certain_value = "0"
 certain_value = certain_value + 'f'*(64-len(certain_value))
 
 working = False
+current_view = None
 
 root_jump = {}
 def lastest_block(root_hash):
@@ -110,6 +111,7 @@ class LeaderHandler(tornado.websocket.WebSocketHandler):
     def open(self):
         self.from_host = self.get_argument("host")
         self.from_port = self.get_argument("port")
+        print(tree.current_port, "leader view", current_view)
         # self.remove_node = True
         # if False: #temp disable force disconnect
         #     print(tree.current_port, "leader force disconnect")
@@ -320,7 +322,6 @@ def mining():
     # global working
     # global transactions
     # global locked_blocks
-    # print(tree.current_port, "leader transactions", transactions)
     if transactions:
         seq = transactions.pop(0)
         transaction = seq[1]
@@ -330,6 +331,7 @@ def mining():
         amount = transaction["transaction"]["amount"]
         timestamp = transaction["transaction"]["timestamp"]
         signature = transaction["signature"]
+        print(tree.current_port, "leader view", current_view)
 
         sender_blocks = lastest_block(sender)
         receiver_blocks = lastest_block(receiver)
