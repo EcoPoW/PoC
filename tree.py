@@ -169,7 +169,7 @@ class NodeHandler(tornado.websocket.WebSocketHandler):
             if (current_host, current_port) in leader.current_leaders and txid not in processed_message_ids:
                 processed_message_ids.add(txid)
                 leader.transactions.append(seq)
-                print(current_port, "tx msg", seq)
+                # print(current_port, "tx msg", seq)
 
         elif seq[0] == "UPDATE_HOME":
             fs.transactions.append(seq)
@@ -317,7 +317,7 @@ class NodeConnector(object):
             if (current_host, current_port) in leader.current_leaders and txid not in processed_message_ids:
                 processed_message_ids.add(txid)
                 leader.transactions.append(seq)
-                print(current_port, "tx msg", seq)
+                # print(current_port, "tx msg", seq)
 
         # else:
         forward(seq)

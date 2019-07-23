@@ -211,7 +211,7 @@ class UserHandler(tornado.web.RequestHandler):
         sig = signing.Signature.from_bytes(bytes.fromhex(str(signature)))
         assert sig.verify(timestamp.encode("utf8"), vk)
 
-        print(tree.current_port, len(self.request.body))
+        # print(tree.current_port, len(self.request.body))
         if not os.path.exists("data/%s" % user_id):
             os.mkdir("data/%s" % user_id)
         open("data/%s/%s" % (user_id, folder_hash), "wb").write(self.request.body)

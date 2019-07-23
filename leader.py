@@ -112,7 +112,6 @@ class LeaderHandler(tornado.websocket.WebSocketHandler):
     def open(self):
         self.from_host = self.get_argument("host")
         self.from_port = self.get_argument("port")
-        print(tree.current_port, "leader view", system_view, current_view)
         # self.remove_node = True
         # if False: #temp disable force disconnect
         #     print(tree.current_port, "leader force disconnect")
@@ -332,6 +331,9 @@ def mining():
     # global transactions
     # global locked_blocks
     if transactions:
+        print(tree.current_port, "I'm the leader of leader", system_view, current_view)
+        if current_view != system_view:
+            return
         seq = transactions.pop(0)
         transaction = seq[1]
         txid = transaction["transaction"]["txid"]
@@ -373,7 +375,7 @@ def mining():
                 # print(tree.current_port, "reply", reply)
 
                 message = ["NEW_TX_BLOCK", transaction, time.time(), uuid.uuid4().hex]
-                print(tree.current_port, message)
+                # print(tree.current_port, message)
                 tree.forward(message)
 
                 message = ["TX", transaction]
@@ -382,7 +384,7 @@ def mining():
 
             nonce += 1
 
-        print(tree.current_port, txid, from_block, to_block)
+        # print(tree.current_port, "txid", txid, from_block, to_block)
 
     if working:
         tornado.ioloop.IOLoop.instance().call_later(1, mining)

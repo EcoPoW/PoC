@@ -87,7 +87,7 @@ def mining():
         block_hash = hashlib.sha256((identity + data + longest_hash + str(difficulty) + str(nonce)).encode('utf8')).hexdigest()
         if int(block_hash, 16) < int("1" * (256-difficulty), 2):
             if longest:
-                print(tree.current_port, len(longest), longest[-1].timestamp, longest[0].timestamp, longest[-1].timestamp - longest[0].timestamp)
+                print(tree.current_port, 'height', len(longest), longest[-1].timestamp, longest[0].timestamp, 'timecost', longest[-1].timestamp - longest[0].timestamp)
             # db.execute("UPDATE chain SET hash = %s, prev_hash = %s, nonce = %s, wallet_address = %s WHERE id = %s", block_hash, longest_hash, nonce, wallet_address, last.id)
             # database.connection.execute("INSERT INTO chain"+tree.current_port+" (hash, prev_hash, nonce, difficulty, identity, timestamp, data) VALUES (%s, %s, %s, %s, '')", block_hash, longest_hash, nonce, difficulty, str(tree.current_port))
 
@@ -120,7 +120,8 @@ def new_block(seq):
 
     if height - 5 > 0:
         leader.system_view = height - 5
-        print(tree.current_port, "leader view", leader.system_view, leader.current_view)
+        # print(tree.current_port, "leader view", leader.system_view, leader.current_view)
+    print(tree.current_port, "current view", leader.current_view, "system view", leader.system_view)
 
 def new_tx_block(seq):
     msg_header, transaction, timestamp, msg_id = seq
