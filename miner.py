@@ -77,6 +77,7 @@ def mining():
             new_difficulty = max(1, difficulty - 1)
 
         if tree.current_port in [i.identity for i in longest[-6:]]:
+            # this is a good place to wake up leader by timestamp
             return
 
     else:
@@ -110,9 +111,16 @@ def new_block(seq):
     if longest:
         leaders = set([("localhost", i.identity) for i in longest[-6:-3]])
         leader.update(leaders)
+        # this method to wake up leader to work, is not as good as the timestamp way
+
+        for i in longest[-6:-3]:
+            if i.identity == tree.current_port:
+                leader.current_view = i.height
+                break
+
     if height - 5 > 0:
-        leader.current_view = height - 5
-        print(tree.current_port, "leader view", leader.current_view)
+        leader.system_view = height - 5
+        print(tree.current_port, "leader view", leader.system_view, leader.current_view)
 
 def new_tx_block(seq):
     msg_header, transaction, timestamp, msg_id = seq

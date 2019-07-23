@@ -20,6 +20,7 @@ certain_value = "0"
 certain_value = certain_value + 'f'*(64-len(certain_value))
 
 working = False
+system_view = None
 current_view = None
 
 root_jump = {}
@@ -111,7 +112,7 @@ class LeaderHandler(tornado.websocket.WebSocketHandler):
     def open(self):
         self.from_host = self.get_argument("host")
         self.from_port = self.get_argument("port")
-        print(tree.current_port, "leader view", current_view)
+        print(tree.current_port, "leader view", system_view, current_view)
         # self.remove_node = True
         # if False: #temp disable force disconnect
         #     print(tree.current_port, "leader force disconnect")
