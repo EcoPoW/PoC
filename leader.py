@@ -334,7 +334,7 @@ def mining():
         tornado.ioloop.IOLoop.instance().call_later(1, mining)
 
     if transactions:
-        print(tree.current_port, "I'm the leader of leader", system_view, current_view)
+        print(tree.current_port, "I'm the leader ", current_view, "of leader view", system_view)
         seq = transactions.pop(0)
         if current_view != system_view:
             return

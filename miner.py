@@ -83,15 +83,17 @@ def mining():
     else:
         longest_hash, difficulty, new_difficulty, data, identity = "0"*64, 1, 1, "", ""
 
+    new_identity = str(tree.current_port)
+    new_timestamp = str(time.time())
     for i in range(100):
-        block_hash = hashlib.sha256((identity + data + longest_hash + str(difficulty) + str(nonce)).encode('utf8')).hexdigest()
+        block_hash = hashlib.sha256((new_identity + new_timestamp + identity + data + longest_hash + str(difficulty) + str(nonce)).encode('utf8')).hexdigest()
         if int(block_hash, 16) < int("1" * (256-difficulty), 2):
             if longest:
                 print(tree.current_port, 'height', len(longest), longest[-1].timestamp, longest[0].timestamp, 'timecost', longest[-1].timestamp - longest[0].timestamp)
             # db.execute("UPDATE chain SET hash = %s, prev_hash = %s, nonce = %s, wallet_address = %s WHERE id = %s", block_hash, longest_hash, nonce, wallet_address, last.id)
             # database.connection.execute("INSERT INTO chain"+tree.current_port+" (hash, prev_hash, nonce, difficulty, identity, timestamp, data) VALUES (%s, %s, %s, %s, '')", block_hash, longest_hash, nonce, difficulty, str(tree.current_port))
 
-            message = ["NEW_BLOCK", block_hash, longest_hash, len(longest)+1, nonce, new_difficulty, str(tree.current_port), int(time.time()), {}, uuid.uuid4().hex]
+            message = ["NEW_BLOCK", block_hash, longest_hash, len(longest)+1, nonce, new_difficulty, new_identity, new_timestamp, {}, uuid.uuid4().hex]
             tree.forward(message)
             # print(tree.current_port, "mining", nonce, block_hash)
             nonce = 0
