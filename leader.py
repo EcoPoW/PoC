@@ -22,6 +22,7 @@ certain_value = certain_value + 'f'*(64-len(certain_value))
 working = False
 system_view = None
 current_view = None
+current_view_no = 0
 
 root_jump = {}
 def lastest_block(root_hash):
@@ -131,6 +132,7 @@ class LeaderHandler(tornado.websocket.WebSocketHandler):
 
     @tornado.gen.coroutine
     def on_message(self, msg):
+        global current_view_no
         seq = tornado.escape.json_decode(msg)
         print(tree.current_port, "on message from leader connector", seq)
 
@@ -195,13 +197,32 @@ class LeaderHandler(tornado.websocket.WebSocketHandler):
         #             del block_to_confirm[txid]
         #     return
 
-        elif seq[0] == "PBFT-O":
-            pass
-        elif seq[0] == "PBFT-P":
-            pass
-        elif seq[0] == "PBFT-C":
-            pass
-        elif seq[0] == "PBFT-V":
+        elif seq[0] == "PBFT_O":
+            # print(tree.current_port, "PBFT_O get message", seq[1])
+            view = seq[1]
+            view_no = seq[2]
+            # view's no should be continuous
+            transaction = seq[3]["transaction"]
+            txid = transaction["txid"]
+            # gen block
+            block_hash = ""
+            forward(["PBFT_P", view, view_no, txid, block_hash])
+            return
+
+        elif seq[0] == "PBFT_P":
+            view = seq[1]
+            view_no = seq[2]
+            txid = seq[3]
+            block_hash = seq[4]
+            # verify blockhash with own blockhash for txid
+            forward(["PBFT_C", view, view_no, txid])
+            return
+
+        elif seq[0] == "PBFT_C":
+            message = ["NEW_TX_BLOCK", transaction, time.time(), uuid.uuid4().hex]
+            return
+
+        elif seq[0] == "PBFT_V":
             pass
 
         forward(seq)
@@ -258,6 +279,10 @@ class LeaderConnector(object):
 
         if seq[0] == "NEW_BLOCK":
             miner.new_block(seq)
+
+        elif seq[0] == "PBFT_P":
+            # print(tree.current_port, "PBFT_P get message", seq)
+            return
 
         # elif seq[0] == "TX":
         #     transaction = seq[1]
@@ -330,11 +355,12 @@ def mining():
     # global working
     # global transactions
     # global locked_blocks
+    global current_view_no
     if working:
         tornado.ioloop.IOLoop.instance().call_later(1, mining)
 
     if transactions:
-        print(tree.current_port, "I'm the leader ", current_view, "of leader view", system_view)
+        print(tree.current_port, "I'm the leader", current_view, "of leader view", system_view)
         seq = transactions.pop(0)
         if current_view != system_view:
             return
@@ -377,12 +403,11 @@ def mining():
                 #     reply.add(leader_connector)
                 # print(tree.current_port, "reply", reply)
 
-        message = ["NEW_TX_BLOCK", transaction, time.time(), uuid.uuid4().hex]
                 # print(tree.current_port, message)
-        tree.forward(message)
 
-        message = ["TX", transaction]
-                # forward(message)
+        current_view_no += 1
+        message = ["PBFT_O", current_view, current_view_no, transaction]
+        forward(message)
                 # break
 
             # nonce += 1
