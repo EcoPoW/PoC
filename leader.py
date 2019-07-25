@@ -23,6 +23,8 @@ working = False
 system_view = None
 current_view = None
 current_view_no = 0
+view_transactions = {}
+view_confirms = {}
 
 root_jump = {}
 def lastest_block(root_hash):
@@ -206,6 +208,7 @@ class LeaderHandler(tornado.websocket.WebSocketHandler):
             txid = transaction["txid"]
             # gen block
             block_hash = ""
+            view_transactions["%s_%s"%(int(view), int(view_no))] = transaction
             forward(["PBFT_P", view, view_no, txid, block_hash])
             return
 
@@ -215,11 +218,24 @@ class LeaderHandler(tornado.websocket.WebSocketHandler):
             txid = seq[3]
             block_hash = seq[4]
             # verify blockhash with own blockhash for txid
-            forward(["PBFT_C", view, view_no, txid])
+            forward(["PBFT_C", view, view_no, txid, current_view])
             return
 
         elif seq[0] == "PBFT_C":
-            message = ["NEW_TX_BLOCK", transaction, time.time(), uuid.uuid4().hex]
+            view = seq[1]
+            view_no = seq[2]
+            txid = seq[3]
+            confirm_view = seq[4]
+
+            k = "%s_%s"%(int(view), int(view_no))
+            transaction = view_transactions.get(k)
+            view_confirms.setdefault(k, set())
+            confirms = view_confirms[k]
+            if confirm_view not in confirms:
+                confirms.add(confirm_view)
+                if transaction and len(confirms)==2:
+                    print(tree.current_port, "NEW_TX_BLOCK", txid, confirms)
+                    message = ["NEW_TX_BLOCK", transaction, time.time(), uuid.uuid4().hex]
             return
 
         elif seq[0] == "PBFT_V":
@@ -281,7 +297,29 @@ class LeaderConnector(object):
             miner.new_block(seq)
 
         elif seq[0] == "PBFT_P":
-            # print(tree.current_port, "PBFT_P get message", seq)
+            view = seq[1]
+            view_no = seq[2]
+            txid = seq[3]
+            block_hash = seq[4]
+            # verify blockhash with own blockhash for txid
+            forward(["PBFT_C", view, view_no, txid, current_view])
+            return
+
+        elif seq[0] == "PBFT_C":
+            view = seq[1]
+            view_no = seq[2]
+            txid = seq[3]
+            confirm_view = seq[4]
+
+            k = "%s_%s"%(int(view), int(view_no))
+            transaction = view_transactions.get(k)
+            view_confirms.setdefault(k, set())
+            confirms = view_confirms[k]
+            if confirm_view not in confirms:
+                confirms.add(confirm_view)
+                if transaction and len(confirms)==2:
+                    print(tree.current_port, "NEW_TX_BLOCK", txid, confirms)
+                    message = ["NEW_TX_BLOCK", transaction, time.time(), uuid.uuid4().hex]
             return
 
         # elif seq[0] == "TX":
