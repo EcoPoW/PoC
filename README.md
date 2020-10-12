@@ -52,6 +52,7 @@ Database Requirement: MySQL 5.0+.
     CREATE DATABASE nodes;
 
 ## 相关论文
+    https://eprint.iacr.org/2020/1117
 
     https://arxiv.org/abs/1902.09100
     
